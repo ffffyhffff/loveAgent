@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: ai-chat
+
+  # PostgreSQL 数据源（请修改为你的配置）
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aichat
+    username: postgres
+    password: ${DB_PASSWORD:your-password}
+    driver-class-name: org.postgresql.Driver
+
+  # JPA 配置
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+# AI 配置
+ai:
+  dashscope:
+    # 阿里云百炼 API Key（请替换为你自己的）
+    api-key: ${DASHSCOPE_API_KEY:your-api-key}
+    model: qwen-plus
+
+# 日志
+logging:
+  level:
+    com.aichat: DEBUG

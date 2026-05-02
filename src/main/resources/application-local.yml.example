@@ -1,0 +1,10 @@
+# 本地配置示例（复制为 application-local.yml 并填入真实值）
+# 注意：不要提交 application-local.yml 到 Git
+
+spring:
+  datasource:
+    password: 123456
+
+ai:
+  dashscope:
+    api-key: sk-your-key-here
