@@ -3,6 +3,7 @@ package com.aichat.app.controller;
 import com.aichat.app.model.*;
 import com.aichat.app.service.AgentChatService;
 import com.aichat.app.service.ChatService;
+import com.aichat.app.service.DatePlanService;
 import com.aichat.app.service.RagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,9 +15,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * 聊天控制器（支持对话持久化）
+ * 聊天控制器
+ * 支持：普通 RAG 对话 + 约会规划（LangGraph4j）
  */
 @RestController
 @RequestMapping("/chat")
@@ -27,12 +30,10 @@ public class ChatController {
     private final ChatService chatService;
     private final AgentChatService agentChatService;
     private final RagService ragService;
+    private final DatePlanService datePlanService;
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
 
-    /**
-     * 获取所有对话列表
-     */
     @GetMapping("/conversations")
     public List<Map<String, Object>> listConversations() {
         return conversationRepository.findAllByOrderByUpdatedAtDesc().stream()
@@ -45,9 +46,6 @@ public class ChatController {
                 .toList();
     }
 
-    /**
-     * 获取单个对话的消息列表
-     */
     @GetMapping("/conversations/{convId}/messages")
     public List<Map<String, String>> getMessages(@PathVariable String convId) {
         return chatMessageRepository.findByConversationConvIdOrderByCreatedAtAsc(convId)
@@ -59,9 +57,6 @@ public class ChatController {
                 .toList();
     }
 
-    /**
-     * 创建新对话
-     */
     @PostMapping("/conversations")
     public Map<String, String> createConversation() {
         String convId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
@@ -72,9 +67,6 @@ public class ChatController {
         return Map.of("id", convId);
     }
 
-    /**
-     * 删除对话
-     */
     @DeleteMapping("/conversations/{convId}")
     public Map<String, String> deleteConversation(@PathVariable String convId) {
         conversationRepository.findByConvId(convId)
@@ -89,19 +81,18 @@ public class ChatController {
     public ChatResponse chat(@RequestBody ChatRequest request) {
         try {
             Conversation conv = getOrCreateConversation(request.getChatId());
-
-            // 保存用户消息
             saveMessage(conv, true, request.getMessage());
 
-            String userMessage = enrichWithRag(request.getMessage());
             String result;
-            if (request.isAgentMode()) {
-                result = agentChatService.chat(userMessage);
+            if (datePlanService.isComplexTask(request.getMessage())) {
+                // 复杂任务：走 LangGraph4j
+                result = datePlanService.execute(request.getMessage());
             } else {
+                // 普通对话：走 RAG
+                String userMessage = enrichWithRag(request.getMessage());
                 result = chatService.chat(userMessage);
             }
 
-            // 保存 AI 回复
             saveMessage(conv, false, result);
             updateTitle(conv, request.getMessage());
 
@@ -124,37 +115,52 @@ public class ChatController {
      */
     @GetMapping(value = "/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatSse(@RequestParam String message,
-                              @RequestParam String convId,
-                              @RequestParam(defaultValue = "false") boolean agentMode) {
+                              @RequestParam String convId) {
         SseEmitter emitter = new SseEmitter(300000L);
 
         Conversation conv = getOrCreateConversation(convId);
         saveMessage(conv, true, message);
 
-        StringBuilder aiResponse = new StringBuilder();
-        String userMessage = enrichWithRag(message);
-
-        agentChatService.chatStream(userMessage,
-                token -> {
-                    aiResponse.append(token);
-                    try {
-                        emitter.send(token);
-                    } catch (IOException e) {
-                        emitter.completeWithError(e);
-                    }
-                },
-                () -> {
-                    // 保存 AI 回复
-                    saveMessage(conv, false, aiResponse.toString());
+        if (datePlanService.isComplexTask(message)) {
+            // 复杂任务：走 LangGraph4j，推送结果
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String result = datePlanService.execute(message);
+                    emitter.send(Map.of("type", "text", "content", result));
+                    saveMessage(conv, false, result);
                     updateTitle(conv, message);
-                    try {
-                        emitter.send("[DONE]");
-                        emitter.complete();
-                    } catch (IOException e) {
-                        emitter.completeWithError(e);
-                    }
+                    emitter.send(Map.of("type", "done"));
+                    emitter.complete();
+                } catch (Exception e) {
+                    emitter.completeWithError(e);
                 }
-        );
+            });
+        } else {
+            // 普通对话：走 RAG SSE
+            StringBuilder aiResponse = new StringBuilder();
+            String userMessage = enrichWithRag(message);
+
+            agentChatService.chatStream(userMessage,
+                    token -> {
+                        aiResponse.append(token);
+                        try {
+                            emitter.send(Map.of("type", "text", "content", token));
+                        } catch (IOException e) {
+                            emitter.completeWithError(e);
+                        }
+                    },
+                    () -> {
+                        saveMessage(conv, false, aiResponse.toString());
+                        updateTitle(conv, message);
+                        try {
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                        } catch (IOException e) {
+                            emitter.completeWithError(e);
+                        }
+                    }
+            );
+        }
 
         return emitter;
     }
@@ -183,7 +189,6 @@ public class ChatController {
     }
 
     private void updateTitle(Conversation conv, String message) {
-        // 第一条用户消息作为标题
         if (conv.getTitle().equals("新的对话") && message.length() > 0) {
             conv.setTitle(message.substring(0, Math.min(message.length(), 20))
                     .replace("\n", " "));
