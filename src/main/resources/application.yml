@@ -38,4 +38,7 @@ logging:
 
 # 高德地图
 amap:
-  api-key: 94601f2760428adee8c2ae25f257280e
+  # 后端 Web服务 Key
+  api-key: fc6e8b9ea28cb5312650b2eef0fe32c0
+  # 前端 Web端 Key（用于 JS API 地图展示）
+  web-key: 94601f2760428adee8c2ae25f257280e

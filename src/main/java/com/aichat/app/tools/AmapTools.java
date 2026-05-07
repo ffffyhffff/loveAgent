@@ -4,16 +4,20 @@ import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
- * 高德地图工具封装
- * REST API 直接调用（后续可替换为 MCP Server）
+ * 高德地图 REST API 封装
+ *
+ * 使用 v5 API，中文关键词需要 URL 编码
  */
 @Component
 @Slf4j
@@ -22,10 +26,18 @@ public class AmapTools {
     @Value("${amap.api-key:}")
     private String apiKey;
 
+    private static final String GEO_URL = "https://restapi.amap.com/v3/geocode/geo";
+    private static final String AROUND_URL = "https://restapi.amap.com/v5/place/around";
+    private static final String TEXT_URL = "https://restapi.amap.com/v5/place/text";
+    private static final String WALKING_URL = "https://restapi.amap.com/v5/direction/walking";
+
+    /**
+     * 地址转经纬度
+     */
     public double[] geocode(String address) {
         try {
-            String resp = HttpUtil.get("https://restapi.amap.com/v3/geocode/geo",
-                    Map.of("key", apiKey, "address", address, "output", "JSON"));
+            String encodedAddr = URLEncoder.encode(address, StandardCharsets.UTF_8);
+            String resp = HttpUtil.get(GEO_URL + "?key=" + apiKey + "&address=" + encodedAddr + "&output=JSON");
             JSONObject json = JSONUtil.parseObj(resp);
             JSONArray geocodes = json.getJSONArray("geocodes");
             if (geocodes != null && !geocodes.isEmpty()) {
@@ -39,58 +51,112 @@ public class AmapTools {
         return null;
     }
 
-    public List<Map<String, Object>> aroundSearch(double lon, double lat, String keywords, int radius) {
-        List<Map<String, Object>> results = new ArrayList<>();
+    /**
+     * 附近搜索 POI
+     * @param lon 经度
+     * @param lat 纬度
+     * @param keywords 关键词（中文需编码）
+     * @param radius 搜索半径（米）
+     */
+    public List<PoiResult> aroundSearch(double lon, double lat, String keywords, int radius) {
+        List<PoiResult> results = new ArrayList<>();
         try {
-            String resp = HttpUtil.get("https://restapi.amap.com/v5/place/around",
-                    Map.of("key", apiKey, "location", lon + "," + lat,
-                            "keywords", keywords, "radius", String.valueOf(radius), "page_size", "5"));
-            JSONObject json = JSONUtil.parseObj(resp);
-            JSONArray pois = json.getJSONArray("pois");
-            if (pois != null) {
-                for (int i = 0; i < pois.size(); i++) {
-                    JSONObject poi = pois.getJSONObject(i);
-                    Map<String, Object> item = new HashMap<>();
-                    item.put("name", poi.getStr("name"));
-                    item.put("address", poi.getStr("address"));
-                    item.put("distance", poi.getStr("distance"));
-                    String loc = poi.getStr("location");
-                    if (loc != null) {
-                        String[] parts = loc.split(",");
-                        item.put("longitude", Double.parseDouble(parts[0]));
-                        item.put("latitude", Double.parseDouble(parts[1]));
-                    }
-                    results.add(item);
-                }
-            }
+            String encodedKw = URLEncoder.encode(keywords, StandardCharsets.UTF_8);
+            String url = AROUND_URL + "?key=" + apiKey
+                    + "&location=" + lon + "," + lat
+                    + "&keywords=" + encodedKw
+                    + "&radius=" + radius
+                    + "&page_size=5";
+            String resp = HttpUtil.get(url);
+            results = parsePois(resp);
+            log.info("附近搜索 [{}] → {} 条结果", keywords, results.size());
         } catch (Exception e) {
             log.error("附近搜索失败", e);
         }
         return results;
     }
 
-    public RouteResult walkingRoute(double[] origin, double[] dest) {
-        RouteResult result = new RouteResult();
+    /**
+     * 关键词搜索 POI
+     */
+    public List<PoiResult> textSearch(String keywords, String city) {
+        List<PoiResult> results = new ArrayList<>();
         try {
-            String resp = HttpUtil.get("https://restapi.amap.com/v5/direction/walking",
-                    Map.of("key", apiKey,
-                            "origin", origin[0] + "," + origin[1],
-                            "destination", dest[0] + "," + dest[1]));
+            String encodedKw = URLEncoder.encode(keywords, StandardCharsets.UTF_8);
+            String url = TEXT_URL + "?key=" + apiKey
+                    + "&keywords=" + encodedKw
+                    + "&city=" + (city != null ? URLEncoder.encode(city, StandardCharsets.UTF_8) : "")
+                    + "&page_size=5";
+            String resp = HttpUtil.get(url);
+            results = parsePois(resp);
+            log.info("关键词搜索 [{}] → {} 条结果", keywords, results.size());
+        } catch (Exception e) {
+            log.error("关键词搜索失败", e);
+        }
+        return results;
+    }
+
+    private List<PoiResult> parsePois(String resp) {
+        List<PoiResult> results = new ArrayList<>();
+        try {
+            JSONObject json = JSONUtil.parseObj(resp);
+            JSONArray pois = json.getJSONArray("pois");
+            if (pois == null) return results;
+            for (int i = 0; i < pois.size(); i++) {
+                JSONObject poi = pois.getJSONObject(i);
+                PoiResult r = new PoiResult();
+                r.setName(poi.getStr("name"));
+                r.setAddress(poi.getStr("address"));
+                r.setDistance(poi.getStr("distance"));
+                String loc = poi.getStr("location");
+                if (loc != null) {
+                    String[] parts = loc.split(",");
+                    r.setLongitude(Double.parseDouble(parts[0]));
+                    r.setLatitude(Double.parseDouble(parts[1]));
+                }
+                results.add(r);
+            }
+        } catch (Exception e) {
+            log.error("解析 POI 失败", e);
+        }
+        return results;
+    }
+
+    /**
+     * 步行路线规划
+     */
+    public RouteResult walkingRoute(double[] origin, double[] destination) {
+        try {
+            String url = WALKING_URL + "?key=" + apiKey
+                    + "&origin=" + origin[0] + "," + origin[1]
+                    + "&destination=" + destination[0] + "," + destination[1];
+            String resp = HttpUtil.get(url);
             JSONObject json = JSONUtil.parseObj(resp);
             JSONArray paths = json.getJSONArray("paths");
             if (paths != null && !paths.isEmpty()) {
                 JSONObject path = paths.getJSONObject(0);
+                RouteResult result = new RouteResult();
                 result.setDistance(path.getStr("distance") + "米");
-                int seconds = path.getInt("duration");
-                result.setDuration((seconds / 60) + "分钟");
+                int secs = path.getInt("duration");
+                result.setDuration((secs / 60) + "分钟");
+                return result;
             }
         } catch (Exception e) {
-            log.error("路线规划失败", e);
+            log.error("步行路线规划失败", e);
         }
-        return result;
+        return new RouteResult();
     }
 
-    @Data
+    @lombok.Data
+    public static class PoiResult {
+        private String name;
+        private String address;
+        private String distance;
+        private double longitude;
+        private double latitude;
+    }
+
+    @lombok.Data
     public static class RouteResult {
         private String distance;
         private String duration;

@@ -87,7 +87,12 @@ public class ChatController {
             String result;
             if (datePlanService.isComplexTask(request.getMessage())) {
                 // 复杂任务：走 LangGraph4j
-                result = datePlanService.execute(request.getMessage());
+                try {
+                    result = datePlanService.execute(request.getMessage());
+                } catch (Exception pe) {
+                    log.error("约会规划执行出错", pe);
+                    result = "约会规划出错: " + pe.getClass().getSimpleName() + ": " + pe.getMessage();
+                }
             } else {
                 // 普通对话：走 RAG
                 String userMessage = enrichWithRag(request.getMessage());

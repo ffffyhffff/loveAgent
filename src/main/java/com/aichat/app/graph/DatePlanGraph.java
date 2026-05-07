@@ -71,14 +71,17 @@ public class DatePlanGraph {
         graph.addConditionalEdges("agent", AsyncEdgeAction.edge_async(routeAfterAgent),
                 Map.of("plan", "plan", END, END));
 
-        // 条件边：plan 之后（用户确认/修改/取消）
+        // 条件边：plan 之后
+        // 由于 interrupt 未实现，暂时自动执行后续步骤
+        // 后续改为：有 userChoice 时按选择路由，无 userChoice 时默认继续
         EdgeAction routeAfterPlan = state -> {
             DatePlanState s = (DatePlanState) state;
             String choice = s.getUserChoice();
             log.info("路由：userChoice = {}", choice);
-            if ("approved".equals(choice)) return "search_poi";
             if ("modify".equals(choice)) return "agent";
-            return END;
+            if ("cancel".equals(choice)) return END;
+            // approved 或 pending → 继续执行
+            return "search_poi";
         };
         graph.addConditionalEdges("plan", AsyncEdgeAction.edge_async(routeAfterPlan),
                 Map.of("search_poi", "search_poi", "agent", "agent", END, END));
