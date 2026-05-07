@@ -20,6 +20,7 @@ import java.util.*;
 public class DatePlanService {
 
     private final DatePlanGraph datePlanGraph;
+    private CompiledGraph<?> compiledGraph;
 
     /**
      * 判断是否是复杂任务（需要 Plan-and-Execute）
@@ -40,7 +41,10 @@ public class DatePlanService {
      */
     public String execute(String userMessage) {
         try {
-            CompiledGraph<?> graph = datePlanGraph.buildGraph().compile();
+            // 缓存编译后的图
+            if (compiledGraph == null) {
+                compiledGraph = datePlanGraph.buildGraph().compile();
+            }
 
             DatePlanState initialState = DatePlanState.fromMessage(userMessage);
             RunnableConfig config = RunnableConfig.builder()
@@ -48,7 +52,7 @@ public class DatePlanService {
                     .build();
 
             // invoke 返回 Optional<AgentState>
-            var optResult = graph.invoke(initialState.data(), config);
+            var optResult = compiledGraph.invoke(initialState.data(), config);
             DatePlanState finalState = (DatePlanState) optResult.orElseThrow();
 
             // 构建回复

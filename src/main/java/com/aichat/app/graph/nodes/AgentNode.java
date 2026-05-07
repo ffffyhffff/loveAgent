@@ -1,6 +1,7 @@
 package com.aichat.app.graph.nodes;
 
 import com.aichat.app.graph.DatePlanState;
+import com.aichat.app.service.RagService;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.NodeAction;
@@ -19,11 +20,12 @@ import java.util.Map;
 public class AgentNode implements NodeAction {
 
     private final ChatLanguageModel chatModel;
+    private final RagService ragService;
 
     private static final String SYSTEM_PROMPT = """
             你是 AI 恋爱大师。
 
-            对于简单的情感咨询，直接回答。
+            对于简单的情感咨询，参考知识库内容直接回答。
 
             当用户请求涉及约会规划、行程安排、推荐地点时，
             请用以下格式回复：
@@ -40,8 +42,9 @@ public class AgentNode implements NodeAction {
             你的回答...
             """;
 
-    public AgentNode(ChatLanguageModel chatModel) {
+    public AgentNode(ChatLanguageModel chatModel, RagService ragService) {
         this.chatModel = chatModel;
+        this.ragService = ragService;
     }
 
     @Override
@@ -50,7 +53,11 @@ public class AgentNode implements NodeAction {
         log.info("Agent 节点：处理用户消息");
 
         String userMessage = state.getUserMessage();
-        String prompt = SYSTEM_PROMPT + "\n\n用户：" + userMessage;
+
+        // 注入 RAG 知识库上下文
+        String ragContext = ragService.search(userMessage);
+        String prompt = SYSTEM_PROMPT + "\n\n知识库参考：\n" + ragContext + "\n\n用户：" + userMessage;
+
         String response = chatModel.chat(prompt);
 
         Map<String, Object> update = new HashMap<>();
@@ -59,7 +66,6 @@ public class AgentNode implements NodeAction {
             update.put(DatePlanState.ACTION, "plan");
             String planContent = response.replace("[ACTION:plan]", "").trim();
             update.put(DatePlanState.PLAN_DESC, planContent);
-            // 解析地点、预算、风格
             for (String line : planContent.split("\n")) {
                 if (line.startsWith("地点："))
                     update.put(DatePlanState.DATE_LOCATION, line.replace("地点：", "").trim());
