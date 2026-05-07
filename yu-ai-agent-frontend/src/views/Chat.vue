@@ -219,16 +219,34 @@ const send = () => {
   const es = chatSSE(msg, activeId.value)
 
   es.onmessage = (event) => {
-    const data = event.data
-    if (data === '[DONE]') {
+    // 解析 JSON 事件（后端现在发送 JSON）
+    let parsed
+    try {
+      parsed = JSON.parse(event.data)
+    } catch (e) {
+      // 兼容纯文本
+      parsed = { type: 'text', content: event.data }
+    }
+
+    if (parsed.type === 'done' || parsed.type === '[DONE]') {
       connecting.value = false
       es.close()
-      // 刷新对话列表（标题可能更新了）
       getConversations().then(list => conversations.value = list)
       return
     }
-    if (aiIndex < messages.value.length) {
-      messages.value[aiIndex].content += data
+
+    if (parsed.type === 'text' && parsed.content) {
+      if (aiIndex < messages.value.length) {
+        messages.value[aiIndex].content += parsed.content
+      }
+    }
+
+    if (parsed.type === 'error' && parsed.message) {
+      if (aiIndex < messages.value.length) {
+        messages.value[aiIndex].content = parsed.message
+      }
+      connecting.value = false
+      es.close()
     }
   }
 
