@@ -35,17 +35,25 @@ public class DatePlanState extends AgentState {
     public static final String PDF_URL = "pdfUrl";
 
     /**
-     * 工厂方法：创建初始状态
+     * 工厂方法：创建初始状态（AgentStateFactory 要求）
      */
-    public static DatePlanState create(String userMessage) {
+    public static DatePlanState create(Map<String, Object> initData) {
+        Map<String, Object> data = new HashMap<>(initData);
+        data.putIfAbsent(ACTION, "");
+        data.putIfAbsent(PLAN_STEPS, new ArrayList<String>());
+        data.putIfAbsent(CAFES, new ArrayList<Map<String, Object>>());
+        data.putIfAbsent(SPOTS, new ArrayList<Map<String, Object>>());
+        data.putIfAbsent(RESTAURANTS, new ArrayList<Map<String, Object>>());
+        return new DatePlanState(data);
+    }
+
+    /**
+     * 工厂方法：从用户消息创建
+     */
+    public static DatePlanState fromMessage(String userMessage) {
         Map<String, Object> data = new HashMap<>();
         data.put(USER_MESSAGE, userMessage);
-        data.put(ACTION, "");
-        data.put(PLAN_STEPS, new ArrayList<String>());
-        data.put(CAFES, new ArrayList<Map<String, Object>>());
-        data.put(SPOTS, new ArrayList<Map<String, Object>>());
-        data.put(RESTAURANTS, new ArrayList<Map<String, Object>>());
-        return new DatePlanState(data);
+        return create(data);
     }
 
     public DatePlanState(Map<String, Object> data) {
