@@ -72,19 +72,48 @@
       <div class="chat-messages" ref="messagesRef">
         <div v-for="(msg, i) in messages" :key="i"
              class="bubble-row" :class="{ 'user-row': msg.isUser }">
-          <div v-if="!msg.isUser" class="avatar ai-avatar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="6" r="3" fill="currentColor"/>
-              <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
-              <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
-              <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
-              <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
-            </svg>
-          </div>
-          <div class="bubble" :class="{ user: msg.isUser, ai: !msg.isUser }">
-            <div class="bubble-content">{{ msg.content }}</div>
-          </div>
-          <div v-if="msg.isUser" class="avatar user-avatar"><span>我</span></div>
+          <!-- 普通消息 -->
+          <template v-if="!msg.type || msg.type === 'text'">
+            <div v-if="!msg.isUser" class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="bubble" :class="{ user: msg.isUser, ai: !msg.isUser }">
+              <div class="bubble-content">{{ msg.content }}</div>
+            </div>
+            <div v-if="msg.isUser" class="avatar user-avatar"><span>我</span></div>
+          </template>
+          <!-- 计划确认卡片 -->
+          <template v-else-if="msg.type === 'plan'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <PlanConfirm :plan="msg.plan" @confirm="(choice) => handlePlanConfirm(choice, i)" />
+          </template>
+          <!-- POI 选择卡片 -->
+          <template v-else-if="msg.type === 'choice'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <PoiSelector :title="msg.title || '选择'" :items="msg.items" @select="(item) => handlePoiSelect(item, i)" />
+          </template>
         </div>
         <div v-if="connecting" class="bubble-row">
           <div class="avatar ai-avatar">
@@ -125,6 +154,8 @@
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { chatSSE, getConversations, getMessages, createConversation, deleteConversation } from '../api'
 import { smoothScrollToBottom } from '../utils/spring'
+import PlanConfirm from '../components/PlanConfirm.vue'
+import PoiSelector from '../components/PoiSelector.vue'
 
 const messagesRef = ref(null)
 const textareaRef = ref(null)
@@ -241,6 +272,30 @@ const send = () => {
       }
     }
 
+    if (parsed.type === 'plan') {
+      // 替换当前 AI 消息为计划确认卡片
+      if (aiIndex < messages.value.length) {
+        messages.value[aiIndex] = {
+          content: '',
+          isUser: false,
+          type: 'plan',
+          plan: parsed
+        }
+      }
+    }
+
+    if (parsed.type === 'choice') {
+      if (aiIndex < messages.value.length) {
+        messages.value[aiIndex] = {
+          content: '',
+          isUser: false,
+          type: 'choice',
+          title: parsed.message || '选择',
+          items: parsed.items || []
+        }
+      }
+    }
+
     if (parsed.type === 'error' && parsed.message) {
       if (aiIndex < messages.value.length) {
         messages.value[aiIndex].content = parsed.message
@@ -257,6 +312,36 @@ const send = () => {
     connecting.value = false
     es.close()
   }
+}
+
+const handlePlanConfirm = (choice, msgIndex) => {
+  // 用户确认/修改/取消计划
+  messages.value[msgIndex] = { content: choice === 'approved' ? '✅ 已确认计划' : choice === 'modify' ? '✏️ 要求修改' : '❌ 已取消', isUser: false, type: 'text' }
+  // 如果确认，发送确认消息触发后端继续执行
+  if (choice === 'approved') {
+    const text = '确认这个计划，请帮我搜索附近的地点'
+    messages.value.push({ content: text, isUser: true })
+    const aiIndex = messages.value.length
+    messages.value.push({ content: '', isUser: false })
+    connecting.value = true
+    const es = chatSSE(text, activeId.value)
+    es.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data)
+        if (parsed.type === 'done') { connecting.value = false; es.close(); return }
+        if (parsed.type === 'text' && parsed.content && aiIndex < messages.value.length) {
+          messages.value[aiIndex].content += parsed.content
+        }
+      } catch (e) {
+        if (aiIndex < messages.value.length) messages.value[aiIndex].content += event.data
+      }
+    }
+    es.onerror = () => { connecting.value = false; es.close() }
+  }
+}
+
+const handlePoiSelect = (item, msgIndex) => {
+  messages.value[msgIndex] = { content: `已选择：${item.name}`, isUser: false, type: 'text' }
 }
 
 const handleEnter = (e) => {

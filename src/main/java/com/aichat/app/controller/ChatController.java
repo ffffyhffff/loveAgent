@@ -8,6 +8,7 @@ import com.aichat.app.service.RagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -206,5 +207,26 @@ public class ChatController {
             log.warn("RAG 查询失败", e);
         }
         return message;
+    }
+
+    /**
+     * PDF 下载
+     */
+    @GetMapping("/pdf/{filename}")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadPdf(@PathVariable String filename) {
+        try {
+            java.io.File file = new java.io.File(System.getProperty("user.dir") + "/tmp/" + filename);
+            if (!file.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            org.springframework.core.io.Resource resource =
+                    new org.springframework.core.io.FileSystemResource(file);
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=" + filename)
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
