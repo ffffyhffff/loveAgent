@@ -35,3 +35,7 @@ ai:
 logging:
   level:
     com.aichat: DEBUG
+
+# 高德地图
+amap:
+  api-key: ${AMAP_API_KEY:your-amap-key}
