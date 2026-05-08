@@ -22,6 +22,13 @@ public class PdfNode implements NodeAction {
         this.pdfTool = pdfTool;
     }
 
+    /**
+     * 直接生成 PDF 并返回路径（供 DatePlanService 分阶段调用）
+     */
+    public String generatePdf(DatePlanState state) {
+        return pdfTool.generate(state);
+    }
+
     @Override
     public Map<String, Object> apply(AgentState agentState) throws Exception {
         DatePlanState state = (DatePlanState) agentState;
@@ -37,7 +44,10 @@ public class PdfNode implements NodeAction {
         reply.append("你的约会计划已生成！\n\n");
         reply.append("📍 地点：").append(state.getDateLocation()).append("\n");
         reply.append("💰 预算：").append(state.getDateBudget()).append("\n");
-        reply.append("✨ 风格：").append(state.getDateStyle()).append("\n\n");
+        reply.append("✨ 风格：").append(state.getDateStyle()).append("\n");
+        if (!state.getDateOccasion().isEmpty()) reply.append("🎯 场景：").append(state.getDateOccasion()).append("\n");
+        if (!state.getDateActivity().isEmpty()) reply.append("🎭 活动：").append(state.getDateActivity()).append("\n");
+        reply.append("\n");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> cafe = (Map<String, Object>) state.value(DatePlanState.SELECTED_CAFE).orElse(null);

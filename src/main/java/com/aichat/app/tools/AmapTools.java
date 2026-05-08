@@ -32,12 +32,24 @@ public class AmapTools {
     private static final String WALKING_URL = "https://restapi.amap.com/v5/direction/walking";
 
     /**
-     * 地址转经纬度
+     * 地址转经纬度（自动提取城市）
      */
     public double[] geocode(String address) {
+        String city = extractCity(address);
+        return geocode(address, city);
+    }
+
+    /**
+     * 地址转经纬度（指定城市，提高精度）
+     */
+    public double[] geocode(String address, String city) {
         try {
             String encodedAddr = URLEncoder.encode(address, StandardCharsets.UTF_8);
-            String resp = HttpUtil.get(GEO_URL + "?key=" + apiKey + "&address=" + encodedAddr + "&output=JSON");
+            String url = GEO_URL + "?key=" + apiKey + "&address=" + encodedAddr + "&output=JSON";
+            if (city != null && !city.isEmpty()) {
+                url += "&city=" + URLEncoder.encode(city, StandardCharsets.UTF_8);
+            }
+            String resp = HttpUtil.get(url);
             JSONObject json = JSONUtil.parseObj(resp);
             JSONArray geocodes = json.getJSONArray("geocodes");
             if (geocodes != null && !geocodes.isEmpty()) {
@@ -46,9 +58,27 @@ public class AmapTools {
                 return new double[]{Double.parseDouble(parts[0]), Double.parseDouble(parts[1])};
             }
         } catch (Exception e) {
-            log.error("地理编码失败: {}", address, e);
+            log.error("地理编码失败: {} (city={})", address, city, e);
         }
         return null;
+    }
+
+    /**
+     * 从地址字符串中提取城市名
+     * 如 "杭州西湖" → "杭州", "北京朝阳区" → "北京", "上海浦东新区" → "上海"
+     */
+    public static String extractCity(String location) {
+        if (location == null || location.isEmpty()) return "";
+        String[] cities = {
+                "北京", "上海", "广州", "深圳", "杭州", "成都", "重庆", "武汉", "南京", "西安",
+                "苏州", "天津", "长沙", "郑州", "青岛", "厦门", "昆明", "合肥", "福州", "济南",
+                "哈尔滨", "沈阳", "大连", "宁波", "无锡", "佛山", "东莞", "珠海", "贵阳", "南宁",
+                "太原", "石家庄", "南昌", "兰州", "海口", "呼和浩特", "银川", "西宁", "拉萨", "乌鲁木齐"
+        };
+        for (String city : cities) {
+            if (location.startsWith(city)) return city;
+        }
+        return "";
     }
 
     /**

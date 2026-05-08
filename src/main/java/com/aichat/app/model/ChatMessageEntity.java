@@ -25,6 +25,10 @@ public class ChatMessageEntity {
     @Column(nullable = false)
     private boolean userMessage;
 
+    /** 消息类型: text, sse_events, pois, map, pdf */
+    @Column(length = 20)
+    private String type = "text";
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 

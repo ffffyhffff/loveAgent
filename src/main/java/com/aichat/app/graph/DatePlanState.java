@@ -23,6 +23,10 @@ public class DatePlanState extends AgentState {
     public static final String DATE_LOCATION = "dateLocation";
     public static final String DATE_BUDGET = "dateBudget";
     public static final String DATE_STYLE = "dateStyle";
+    public static final String DATE_DURATION = "dateDuration";
+    public static final String DATE_OCCASION = "dateOccasion";      // 约会场景：普通约会/纪念日/生日/求婚/第一次约会
+    public static final String DATE_ACTIVITY = "dateActivity";      // 活动偏好：放松休闲/动感体验/文艺探索/纯吃为主
+    public static final String DATE_KEYWORDS = "dateKeywords";
     public static final String USER_CHOICE = "userChoice";
     public static final String CAFES = "cafes";
     public static final String SPOTS = "spots";
@@ -88,6 +92,22 @@ public class DatePlanState extends AgentState {
 
     public String getDateStyle() {
         return value(DATE_STYLE).map(Object::toString).orElse("");
+    }
+
+    public String getDateDuration() {
+        return value(DATE_DURATION).map(Object::toString).orElse("");
+    }
+
+    public String getDateKeywords() {
+        return value(DATE_KEYWORDS).map(Object::toString).orElse("");
+    }
+
+    public String getDateOccasion() {
+        return value(DATE_OCCASION).map(Object::toString).orElse("");
+    }
+
+    public String getDateActivity() {
+        return value(DATE_ACTIVITY).map(Object::toString).orElse("");
     }
 
     @SuppressWarnings("unchecked")

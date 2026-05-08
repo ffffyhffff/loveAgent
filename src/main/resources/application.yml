@@ -6,7 +6,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/aichat
     username: postgres
-    password: ${DB_PASSWORD:your-password}
+    password: 123456
     driver-class-name: org.postgresql.Driver
 
   # JPA 配置
@@ -28,7 +28,7 @@ server:
 ai:
   dashscope:
     # 阿里云百炼 API Key（请替换为你自己的）
-    api-key: ${DASHSCOPE_API_KEY:your-api-key}
+    api-key: sk-a4cab39af09642a5af177d62966a4236
     model: qwen-plus
 
 # 日志

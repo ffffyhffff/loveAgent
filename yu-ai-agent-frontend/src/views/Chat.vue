@@ -88,8 +88,10 @@
             </div>
             <div v-if="msg.isUser" class="avatar user-avatar"><span>我</span></div>
           </template>
-          <!-- 计划确认卡片 -->
-          <template v-else-if="msg.type === 'plan'">
+
+
+          <!-- 步骤进度 -->
+          <template v-else-if="msg.type === 'steps'">
             <div class="avatar ai-avatar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="6" r="3" fill="currentColor"/>
@@ -99,10 +101,11 @@
                 <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
               </svg>
             </div>
-            <PlanConfirm :plan="msg.plan" @confirm="(choice) => handlePlanConfirm(choice, i)" />
+            <StepProgress :steps="msg.steps" />
           </template>
-          <!-- POI 选择卡片 -->
-          <template v-else-if="msg.type === 'choice'">
+
+          <!-- 地图 -->
+          <template v-else-if="msg.type === 'map'">
             <div class="avatar ai-avatar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="6" r="3" fill="currentColor"/>
@@ -112,9 +115,138 @@
                 <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
               </svg>
             </div>
-            <PoiSelector :title="msg.title || '选择'" :items="msg.items" @select="(item) => handlePoiSelect(item, i)" />
+            <div class="map-bubble-wrapper">
+              <RouteMap :pois="msg.pois" :routeInfo="msg.routeInfo" />
+              <!-- 修改按钮 -->
+              <div class="map-actions">
+                <button class="action-btn" @click="findPoisMsgAndOpen(msg)">
+                  🔄 换目的地
+                </button>
+                <button class="action-btn" @click="showModifyInput = !showModifyInput">
+                  💬 让 AI 改
+                </button>
+              </div>
+              <!-- AI 修改输入框 -->
+              <div v-if="showModifyInput" class="modify-input-bar">
+                <input v-model="modifyText" placeholder="如：换成茶馆、晚餐想吃火锅..."
+                       class="modify-input" @keyup.enter="handleAiModify" />
+                <button class="modify-send" @click="handleAiModify">发送</button>
+              </div>
+            </div>
+          </template>
+
+          <!-- POI 列表（动态分类） -->
+          <template v-else-if="msg.type === 'pois'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="poi-list-card glass-card">
+              <!-- 动态分类格式 -->
+              <template v-if="msg.categories">
+                <div v-for="cat in msg.categories" :key="cat.key" class="poi-cat-section">
+                  <div class="poi-cat-label">{{ getCatIcon(cat.label) }} {{ cat.label }}</div>
+                  <div class="poi-grid">
+                    <div v-for="(poi, j) in cat.items.slice(0, 3)" :key="j"
+                         class="poi-item" :class="{ 'poi-selected': msg.selected && msg.selected[cat.key] === j }">
+                      <span class="poi-name">{{ poi.name }}</span>
+                      <span class="poi-addr">{{ poi.address }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <!-- 扁平列表格式（兼容旧版） -->
+              <template v-else>
+                <h4>搜索到的地点</h4>
+                <div class="poi-grid">
+                  <div v-for="(poi, j) in msg.items" :key="j" class="poi-item">
+                    <span class="poi-name">{{ poi.name }}</span>
+                    <span class="poi-addr">{{ poi.address }}</span>
+                    <span class="poi-dist" v-if="poi.distance">{{ poi.distance }}m</span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <!-- 分类结果展示（POI 卡片） -->
+          <template v-else-if="msg.type === 'section'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="section-card glass-card">
+              <div class="section-title">{{ msg.icon }} {{ msg.title }}</div>
+              <PoiCard v-for="(poi, j) in msg.items" :key="j" :poi="poi" />
+            </div>
+          </template>
+
+          <!-- 评价气泡 -->
+          <template v-else-if="msg.type === 'review'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="review-bubble">
+              <div class="review-place">💬 {{ msg.placeName }} 的评价</div>
+              <div class="review-text">{{ msg.text }}</div>
+            </div>
+          </template>
+
+          <!-- PDF 下载 -->
+          <template v-else-if="msg.type === 'pdf'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="pdf-card glass-card">
+              <div class="pdf-icon">📄</div>
+              <div class="pdf-info">
+                <span class="pdf-title">约会计划书</span>
+                <span class="pdf-desc">PDF 已生成，点击下载</span>
+              </div>
+              <a :href="getPdfUrl(msg.url)" class="glass-btn primary pdf-btn" download>下载</a>
+            </div>
+          </template>
+
+          <!-- LoveAgent 动态表单（占位，实际弹窗由 DynamicForm 组件处理） -->
+          <template v-else-if="msg.type === 'form'">
+            <div class="avatar ai-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="6" r="3" fill="currentColor"/>
+                <circle cx="17" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+                <circle cx="15.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="8.5" cy="15.5" r="3" fill="currentColor" opacity="0.8"/>
+                <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="bubble ai form-placeholder-bubble">
+              <span class="form-waiting-text">📋 {{ msg.formSpec?.title || '请填写信息' }} — 弹窗已打开</span>
+            </div>
           </template>
         </div>
+
+        <!-- 打字动画 -->
         <div v-if="connecting" class="bubble-row">
           <div class="avatar ai-avatar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -147,15 +279,56 @@
         </div>
       </div>
     </div>
+
+    <!-- LoveAgent 动态表单弹窗 -->
+    <DynamicForm
+      v-if="activeFormSpec"
+      :formSpec="activeFormSpec"
+      @submit="handleFormSubmit"
+      @close="activeFormSpec = null"
+    />
+
+    <!-- POI 选择器弹窗 -->
+    <Teleport to="body">
+      <div v-if="poiSelectorVisible" class="dialog-overlay" @click.self="poiSelectorVisible = false">
+        <PoiSelector
+          :categories="poiSelectorData.categories"
+          :selected="poiSelectorData.selected"
+          @confirm="handlePoiConfirm"
+          @close="poiSelectorVisible = false"
+        />
+      </div>
+    </Teleport>
+
+    <!-- 右侧执行面板 -->
+    <RightPanel
+      :visible="rightPanelVisible"
+      :steps="rightPanel.steps"
+      :pois="rightPanel.pois"
+      :selectedPois="rightPanel.selectedPois"
+      :routeInfo="rightPanel.routeInfo"
+      :pdfUrl="rightPanel.pdfUrl"
+      @close="rightPanelVisible = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue'
-import { chatSSE, getConversations, getMessages, createConversation, deleteConversation } from '../api'
+import { ref, reactive, watch, nextTick, onMounted } from 'vue'
+import {
+  chatSSE, getConversations, getMessages, createConversation, deleteConversation,
+  routeIntent, loveStreamInit, loveStreamResume, regeneratePlan, modifyPlanStream,
+} from '../api'
 import { smoothScrollToBottom } from '../utils/spring'
-import PlanConfirm from '../components/PlanConfirm.vue'
+import { consumeSSE } from '../utils/sse'
+import StepProgress from '../components/StepProgress.vue'
+import RouteMap from '../components/RouteMap.vue'
+import DynamicForm from '../components/DynamicForm.vue'
 import PoiSelector from '../components/PoiSelector.vue'
+import PoiCard from '../components/PoiCard.vue'
+import RightPanel from '../components/RightPanel.vue'
+
+const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8123/api'
 
 const messagesRef = ref(null)
 const textareaRef = ref(null)
@@ -166,6 +339,119 @@ const sidebarOpen = ref(false)
 const conversations = ref([])
 const activeId = ref('')
 const messages = ref([])
+
+// LoveAgent 状态
+const activeFormSpec = ref(null)
+const rightPanelVisible = ref(false)
+const rightPanel = reactive({
+  steps: [],
+  pois: [],
+  selectedPois: [],
+  routeInfo: null,
+  pdfUrl: null,
+})
+let loveAbort = null
+
+// POI 修改状态
+const poiSelectorVisible = ref(false)
+const poiSelectorData = reactive({ categories: [], selected: {} })
+const modifyLocation = ref('') // 当前约会计划的地点（用于修改时搜索）
+
+// 打开 POI 选择器
+const openPoiSelector = (msg) => {
+  if (msg.categories) {
+    poiSelectorData.categories = msg.categories
+    poiSelectorData.selected = { ...msg.selected }
+  }
+  poiSelectorVisible.value = true
+}
+
+// 确认修改 POI
+const handlePoiConfirm = async (selectedPois) => {
+  poiSelectorVisible.value = false
+  if (selectedPois.length < 2) return
+  if (!modifyLocation.value) {
+    messages.value.push({ content: '无法确定约会地点，请重新发起约会规划', isUser: false })
+    return
+  }
+
+  connecting.value = true
+  const aiIndex = messages.value.length
+  messages.value.push({ content: '正在重新规划路线...', isUser: false })
+
+  try {
+    const { promise } = regeneratePlan({
+      selectedPois,
+      location: modifyLocation.value,
+      budget: '',
+      style: '',
+      convId: activeId.value,
+    })
+    const response = await promise
+    if (!response.ok) {
+      messages.value[aiIndex].content = '重新规划失败，请重试'
+      connecting.value = false
+      return
+    }
+
+    const handler = createLoveEventHandler(aiIndex)
+    pendingFormCleanup = handler.cleanup
+    await consumeSSE(response, {
+      ...handler,
+      onDone() { connecting.value = false; loveAbort = null },
+      onError(err) { messages.value[aiIndex].content = err.message || '出错'; connecting.value = false; loveAbort = null },
+    })
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      messages.value[aiIndex].content = '重新规划出错: ' + e.message
+    }
+    connecting.value = false
+  }
+}
+
+// AI 修改对话
+const showModifyInput = ref(false)
+const modifyText = ref('')
+
+const handleAiModify = async () => {
+  if (!modifyText.value.trim()) return
+  if (!modifyLocation.value) {
+    messages.value.push({ content: '无法确定约会地点，请重新发起约会规划', isUser: false })
+    showModifyInput.value = false
+    return
+  }
+  const msg = modifyText.value.trim()
+  modifyText.value = ''
+  showModifyInput.value = false
+
+  messages.value.push({ content: msg, isUser: true })
+  connecting.value = true
+  const aiIndex = messages.value.length
+  messages.value.push({ content: '', isUser: false })
+
+  try {
+    const { promise } = modifyPlanStream(msg, modifyLocation.value)
+    const response = await promise
+    if (!response.ok) {
+      messages.value[aiIndex].content = '修改请求失败'
+      connecting.value = false
+      return
+    }
+
+    const handler = createLoveEventHandler(aiIndex)
+    pendingFormCleanup = handler.cleanup
+    await consumeSSE(response, {
+      ...handler,
+      onDone() { connecting.value = false; loveAbort = null; getConversations().then(list => conversations.value = list) },
+      onError(err) { messages.value[aiIndex].content = err.message || '出错'; connecting.value = false; loveAbort = null },
+    })
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      messages.value[aiIndex].content = '修改出错: ' + e.message
+    }
+    connecting.value = false
+  }
+}
 
 onMounted(async () => {
   await loadConversations()
@@ -187,17 +473,47 @@ const loadConversations = async () => {
 const loadMessages = async (convId) => {
   try {
     const data = await getMessages(convId)
-    messages.value = data.map(m => ({
-      content: m.content,
-      isUser: m.isUser === 'true',
-    }))
+    const loaded = []
+    for (const m of data) {
+      if (m.type === 'sse_events') {
+        // 结构化 SSE 事件：展开为多个消息
+        try {
+          const events = JSON.parse(m.content)
+          for (const evt of events) {
+            if (evt.type === 'pois') {
+              if (evt.categories) {
+                loaded.push({ content: '', isUser: false, type: 'pois', categories: evt.categories, selected: evt.selected || {} })
+              } else if (evt.items) {
+                loaded.push({ content: '', isUser: false, type: 'pois', items: evt.items })
+              }
+            } else if (evt.type === 'map') {
+              loaded.push({ content: '', isUser: false, type: 'map', pois: evt.pois || [], routeInfo: evt.routeInfo || null })
+              if (evt.location) modifyLocation.value = evt.location
+            } else if (evt.type === 'pdf' && evt.url) {
+              loaded.push({ content: '', isUser: false, type: 'pdf', url: evt.url })
+            }
+          }
+        } catch { /* JSON 解析失败，跳过 */ }
+      } else {
+        loaded.push({
+          content: m.content,
+          isUser: m.isUser === 'true',
+        })
+      }
+    }
+    messages.value = loaded
     nextTick(scrollToBottom)
   } catch(e) {
     console.error('加载消息失败', e)
   }
 }
 
+// 切换对话时清理待弹窗定时器
+let pendingFormCleanup = null
+
 const switchConversation = async (id) => {
+  if (pendingFormCleanup) { pendingFormCleanup(); pendingFormCleanup = null }
+  activeFormSpec.value = null
   activeId.value = id
   sidebarOpen.value = false
   await loadMessages(id)
@@ -205,6 +521,8 @@ const switchConversation = async (id) => {
 
 const newConversation = async () => {
   try {
+    if (pendingFormCleanup) { pendingFormCleanup(); pendingFormCleanup = null }
+    activeFormSpec.value = null
     const { id } = await createConversation()
     conversations.value = await getConversations()
     activeId.value = id
@@ -235,29 +553,40 @@ const scrollToBottom = () => { smoothScrollToBottom(messagesRef.value) }
 watch(() => messages.value.length, scrollToBottom)
 watch(() => messages.value.map(m => m.content).join(''), scrollToBottom)
 
-const send = () => {
+// 主发送逻辑
+const send = async () => {
   if (!text.value.trim() || connecting.value) return
 
-  messages.value.push({ content: text.value, isUser: true })
-  const aiIndex = messages.value.length
-  messages.value.push({ content: '', isUser: false })
-
-  connecting.value = true
-  const msg = text.value
+  const msg = text.value.trim()
   text.value = ''
   if (textareaRef.value) textareaRef.value.style.height = 'auto'
+
+  messages.value.push({ content: msg, isUser: true })
+
+  try {
+    const { intent } = await routeIntent(msg)
+    if (intent === 'plan') {
+      await handleLoveStream(msg)
+    } else {
+      handleNormalChat(msg)
+    }
+  } catch (e) {
+    console.error('意图路由失败，走普通对话', e)
+    handleNormalChat(msg)
+  }
+}
+
+// ========== 普通对话 ==========
+const handleNormalChat = (msg) => {
+  const aiIndex = messages.value.length
+  messages.value.push({ content: '', isUser: false })
+  connecting.value = true
 
   const es = chatSSE(msg, activeId.value)
 
   es.onmessage = (event) => {
-    // 解析 JSON 事件（后端现在发送 JSON）
     let parsed
-    try {
-      parsed = JSON.parse(event.data)
-    } catch (e) {
-      // 兼容纯文本
-      parsed = { type: 'text', content: event.data }
-    }
+    try { parsed = JSON.parse(event.data) } catch { parsed = { type: 'text', content: event.data } }
 
     if (parsed.type === 'done' || parsed.type === '[DONE]') {
       connecting.value = false
@@ -265,41 +594,11 @@ const send = () => {
       getConversations().then(list => conversations.value = list)
       return
     }
-
-    if (parsed.type === 'text' && parsed.content) {
-      if (aiIndex < messages.value.length) {
-        messages.value[aiIndex].content += parsed.content
-      }
+    if (parsed.type === 'text' && parsed.content && aiIndex < messages.value.length) {
+      messages.value[aiIndex].content += parsed.content
     }
-
-    if (parsed.type === 'plan') {
-      // 替换当前 AI 消息为计划确认卡片
-      if (aiIndex < messages.value.length) {
-        messages.value[aiIndex] = {
-          content: '',
-          isUser: false,
-          type: 'plan',
-          plan: parsed
-        }
-      }
-    }
-
-    if (parsed.type === 'choice') {
-      if (aiIndex < messages.value.length) {
-        messages.value[aiIndex] = {
-          content: '',
-          isUser: false,
-          type: 'choice',
-          title: parsed.message || '选择',
-          items: parsed.items || []
-        }
-      }
-    }
-
     if (parsed.type === 'error' && parsed.message) {
-      if (aiIndex < messages.value.length) {
-        messages.value[aiIndex].content = parsed.message
-      }
+      if (aiIndex < messages.value.length) messages.value[aiIndex].content = parsed.message
       connecting.value = false
       es.close()
     }
@@ -307,41 +606,224 @@ const send = () => {
 
   es.onerror = () => {
     if (messages.value[aiIndex] && !messages.value[aiIndex].content) {
-      messages.value[aiIndex].content = '呜...连接出错了，请重试'
+      messages.value[aiIndex].content = '连接出错了，请重试'
     }
     connecting.value = false
     es.close()
   }
 }
 
-const handlePlanConfirm = (choice, msgIndex) => {
-  // 用户确认/修改/取消计划
-  messages.value[msgIndex] = { content: choice === 'approved' ? '✅ 已确认计划' : choice === 'modify' ? '✏️ 要求修改' : '❌ 已取消', isUser: false, type: 'text' }
-  // 如果确认，发送确认消息触发后端继续执行
-  if (choice === 'approved') {
-    const text = '确认这个计划，请帮我搜索附近的地点'
-    messages.value.push({ content: text, isUser: true })
-    const aiIndex = messages.value.length
-    messages.value.push({ content: '', isUser: false })
-    connecting.value = true
-    const es = chatSSE(text, activeId.value)
-    es.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data)
-        if (parsed.type === 'done') { connecting.value = false; es.close(); return }
-        if (parsed.type === 'text' && parsed.content && aiIndex < messages.value.length) {
-          messages.value[aiIndex].content += parsed.content
-        }
-      } catch (e) {
-        if (aiIndex < messages.value.length) messages.value[aiIndex].content += event.data
+// ========== LoveAgent 公共 SSE 事件处理 ==========
+const createLoveEventHandler = (aiIndex) => {
+  let formTimer = null
+
+  const handler = {
+  onEvent(parsed) {
+    if (parsed.type === 'text' && parsed.content) {
+      messages.value[aiIndex].content += parsed.content
+    }
+    if (parsed.type === 'form' && parsed.formSpec) {
+      let spec = parsed.formSpec
+      if (typeof spec === 'string') {
+        try { spec = JSON.parse(spec) } catch { return }
+      }
+      // 如果表单没有字段（信息已完整），跳过弹窗
+      if (!spec.fields || spec.fields.length === 0) {
+        activeFormSpec.value = null
+        return
+      }
+      // 延迟 2 秒弹窗，让用户先看完 AI 回复
+      messages.value.push({ content: '', isUser: false, type: 'form', formSpec: spec })
+      if (formTimer) clearTimeout(formTimer)
+      formTimer = setTimeout(() => {
+        activeFormSpec.value = spec
+        formTimer = null
+      }, 2000)
+    }
+    if (parsed.type === 'step') {
+      rightPanelVisible.value = true
+      if (parsed.message) {
+        rightPanel.steps = [{ label: '搜索地点', status: 'active', detail: parsed.message }]
+        messages.value.push({ content: parsed.message, isUser: false, type: 'steps', steps: [{ label: '搜索地点', status: 'active', detail: parsed.message }] })
       }
     }
-    es.onerror = () => { connecting.value = false; es.close() }
+    if (parsed.type === 'pois') {
+      // 动态分类 POI（新版）或扁平列表（兼容旧版）
+      if (parsed.categories) {
+        const msgData = { content: '', isUser: false, type: 'pois', categories: parsed.categories, selected: parsed.selected || {} }
+        messages.value.push(msgData)
+        rightPanel.pois = parsed.categories.flatMap(c => c.items || [])
+      } else if (parsed.items) {
+        rightPanel.pois = parsed.items
+        messages.value.push({ content: '', isUser: false, type: 'pois', items: parsed.items })
+      }
+    }
+    if (parsed.type === 'map') {
+      rightPanel.selectedPois = parsed.pois || []
+      rightPanel.routeInfo = parsed.routeInfo || null
+      // 记录地点用于修改
+      if (parsed.location) modifyLocation.value = parsed.location
+      rightPanel.steps = [
+        { label: '搜索地点', status: 'done' },
+        { label: '规划路线', status: 'done' },
+        { label: '生成PDF', status: 'active' },
+      ]
+      messages.value.push({ content: '', isUser: false, type: 'map', pois: parsed.pois || [], routeInfo: parsed.routeInfo || null })
+    }
+    if (parsed.type === 'pdf' && parsed.url) {
+      rightPanel.pdfUrl = parsed.url
+      rightPanel.steps = [
+        { label: '搜索地点', status: 'done' },
+        { label: '规划路线', status: 'done' },
+        { label: '生成PDF', status: 'done' },
+      ]
+      messages.value.push({ content: '', isUser: false, type: 'pdf', url: parsed.url })
+    }
+    // 分类结果展示（POI 卡片）
+    if (parsed.type === 'section' && parsed.items) {
+      messages.value.push({
+        content: '', isUser: false, type: 'section',
+        title: parsed.title,
+        icon: parsed.icon || getCatIcon(parsed.title),
+        items: parsed.items,
+      })
+    }
+    // 评价展示
+    if (parsed.type === 'review') {
+      messages.value.push({
+        content: '', isUser: false, type: 'review',
+        placeName: parsed.placeName || '',
+        text: parsed.content || '',
+      })
+    }
+  },
+  }
+  // 切换对话时清理定时器
+  handler.cleanup = () => { if (formTimer) { clearTimeout(formTimer); formTimer = null } }
+  return handler
+}
+
+// ========== LoveAgent 流式对话 ==========
+const handleLoveStream = async (msg) => {
+  connecting.value = true
+  const aiIndex = messages.value.length
+  messages.value.push({ content: '', isUser: false })
+
+  const { promise, abort } = loveStreamInit(msg, activeId.value)
+  loveAbort = abort
+
+  try {
+    const response = await promise
+    if (!response.ok) {
+      messages.value[aiIndex].content = '请求失败，请重试'
+      connecting.value = false
+      return
+    }
+
+    const handler = createLoveEventHandler(aiIndex)
+    pendingFormCleanup = handler.cleanup
+    await consumeSSE(response, {
+      ...handler,
+      onDone() {
+        connecting.value = false
+        loveAbort = null
+        getConversations().then(list => conversations.value = list)
+      },
+      onError(err) {
+        messages.value[aiIndex].content = err.message || '请求出错'
+        connecting.value = false
+        loveAbort = null
+      },
+    })
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      console.error('LoveStream 失败', e)
+      messages.value[aiIndex].content = '请求出错: ' + e.message
+    }
+    connecting.value = false
+    loveAbort = null
   }
 }
 
-const handlePoiSelect = (item, msgIndex) => {
-  messages.value[msgIndex] = { content: `已选择：${item.name}`, isUser: false, type: 'text' }
+// ========== LoveAgent 表单提交 ==========
+const handleFormSubmit = ({ formId, answers }) => {
+  activeFormSpec.value = null
+
+  const parts = Object.entries(answers)
+    .filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+    .map(([k, v]) => `${k}：${Array.isArray(v) ? v.join(', ') : v}`)
+  if (parts.length > 0) {
+    messages.value.push({ content: parts.join('，'), isUser: true })
+  }
+
+  connecting.value = true
+  const aiIndex = messages.value.length
+  messages.value.push({ content: '', isUser: false })
+
+  const { promise, abort } = loveStreamResume(activeId.value, formId, answers)
+  loveAbort = abort
+
+  promise.then(response => {
+    if (!response.ok) {
+      messages.value[aiIndex].content = '请求失败，请重试'
+      connecting.value = false
+      return
+    }
+
+    const handler = createLoveEventHandler(aiIndex)
+    pendingFormCleanup = handler.cleanup
+    return consumeSSE(response, {
+      ...handler,
+      onDone() {
+        connecting.value = false
+        loveAbort = null
+        getConversations().then(list => conversations.value = list)
+      },
+      onError(err) {
+        messages.value[aiIndex].content = err.message || '请求出错'
+        connecting.value = false
+        loveAbort = null
+      },
+    })
+  }).catch(e => {
+    if (e.name !== 'AbortError') {
+      console.error('LoveStream resume 失败', e)
+      messages.value[aiIndex].content = '请求出错: ' + e.message
+    }
+    connecting.value = false
+    loveAbort = null
+  })
+}
+
+const getPdfUrl = (path) => {
+  if (!path) return '#'
+  return API_BASE.replace('/api', '') + path
+}
+
+// 找到最近的 pois 消息并打开选择器
+const findPoisMsgAndOpen = (mapMsg) => {
+  // 往前找最近的 pois 消息
+  const idx = messages.value.indexOf(mapMsg)
+  for (let i = idx; i >= 0; i--) {
+    const m = messages.value[i]
+    if (m.type === 'pois' && m.categories) {
+      openPoiSelector(m)
+      return
+    }
+  }
+  // 没找到分类 POI，提示
+  alert('无法找到 POI 数据，请刷新页面重试')
+}
+
+const getCatIcon = (label) => {
+  if (label.includes('茶') || label.includes('咖啡') || label.includes('休闲')) return '☕'
+  if (label.includes('景点') || label.includes('公园') || label.includes('观景')) return '🌸'
+  if (label.includes('晚餐') || label.includes('餐厅') || label.includes('火锅') || label.includes('美食')) return '🍽️'
+  if (label.includes('甜品') || label.includes('甜蜜')) return '🍰'
+  if (label.includes('花店') || label.includes('浪漫') || label.includes('惊喜')) return '💐'
+  if (label.includes('书店') || label.includes('文艺') || label.includes('展览')) return '📚'
+  if (label.includes('酒吧') || label.includes('微醺')) return '🍷'
+  return '📍'
 }
 
 const handleEnter = (e) => {
@@ -420,7 +902,7 @@ const autoResize = () => {
 
 /* 消息 */
 .chat-messages { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
-.bubble-row { display: flex; align-items: flex-end; gap: 10px; max-width: 80%; animation: springIn 0.5s var(--transition-spring) both; }
+.bubble-row { display: flex; align-items: flex-end; gap: 10px; max-width: 85%; animation: springIn 0.5s var(--transition-spring) both; }
 .bubble-row.user-row { align-self: flex-end; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .ai-avatar { background: rgba(233,30,99,0.08); color: #e91e63; border: 1px solid rgba(233,30,99,0.12); }
@@ -433,6 +915,34 @@ const autoResize = () => {
 .typing-bubble .dot { width: 7px; height: 7px; border-radius: 50%; background: #e91e63; animation: typing 1.4s infinite; }
 .typing-bubble .dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-bubble .dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* POI 列表卡片 */
+.poi-list-card { padding: 16px; margin: 4px 0; }
+.poi-list-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 12px; }
+.poi-grid { display: flex; flex-direction: column; gap: 8px; }
+.poi-item {
+  padding: 10px 14px; border-radius: 10px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.poi-name { font-size: 0.85rem; font-weight: 600; }
+.poi-addr { font-size: 0.75rem; color: var(--color-text-secondary); }
+.poi-dist { font-size: 0.72rem; color: var(--color-text-dim); }
+
+/* PDF 卡片 */
+.pdf-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; margin: 4px 0;
+}
+.pdf-icon { font-size: 28px; }
+.pdf-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pdf-title { font-size: 0.9rem; font-weight: 600; }
+.pdf-desc { font-size: 0.78rem; color: var(--color-text-secondary); }
+.pdf-btn { font-size: 13px; padding: 8px 18px; text-decoration: none; }
+
+/* LoveAgent 表单占位气泡 */
+.form-placeholder-bubble { display: flex; align-items: center; }
+.form-waiting-text { font-size: 0.82rem; color: var(--color-text-secondary); font-style: italic; }
 
 /* 输入 */
 .input-container { padding: 10px 16px 14px; }
@@ -455,6 +965,12 @@ const autoResize = () => {
 .send-btn:active:not(:disabled) { transform: scale(0.9); transition: transform 0.1s; }
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* 聊天气泡内的地图 */
+.map-bubble-wrapper {
+  width: 100%; max-width: 600px;
+  border-radius: 16px; overflow: hidden;
+}
+
 @media (max-width: 768px) {
   .menu-btn { display: flex; }
   .sidebar {
@@ -469,4 +985,69 @@ const autoResize = () => {
   }
   .sidebar-overlay.show { opacity: 1; pointer-events: auto; }
 }
+
+/* 地图操作按钮 */
+.map-actions {
+  display: flex; gap: 8px; margin-top: 10px; padding: 0 4px;
+}
+.action-btn {
+  padding: 8px 14px; border-radius: 10px; font-size: 0.78rem; font-weight: 600;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--color-text-secondary); cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.action-btn:hover {
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.1));
+  border-color: rgba(139,92,246,0.3); color: #c084fc;
+}
+
+/* AI 修改输入框 */
+.modify-input-bar {
+  display: flex; gap: 8px; margin-top: 8px;
+}
+.modify-input {
+  flex: 1; padding: 8px 14px; border-radius: 10px; font-size: 0.82rem;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--color-text); outline: none;
+}
+.modify-input:focus { border-color: rgba(139,92,246,0.4); }
+.modify-input::placeholder { color: rgba(255,255,255,0.3); }
+.modify-send {
+  padding: 8px 16px; border-radius: 10px; font-size: 0.82rem; font-weight: 600;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899); border: none; color: white; cursor: pointer;
+}
+
+/* 分类结果卡片 + 评价气泡 */
+.section-card { padding: 14px; margin: 8px 0; }
+.section-title {
+  font-size: 0.9rem; font-weight: 700; margin-bottom: 8px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.review-bubble {
+  padding: 12px 16px; margin: 6px 0; border-radius: 14px;
+  background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.15);
+}
+.review-place { font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; }
+.review-text { font-size: 0.78rem; color: var(--color-text-secondary); white-space: pre-wrap; }
+
+/* POI 分类样式 */
+.poi-cat-section { margin-bottom: 12px; }
+.poi-cat-section:last-child { margin-bottom: 0; }
+.poi-cat-label {
+  font-size: 0.78rem; font-weight: 600; color: var(--color-text-secondary);
+  margin-bottom: 6px; padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.poi-selected { border-color: rgba(139,92,246,0.4) !important; background: rgba(139,92,246,0.1) !important; }
+
+/* 弹窗遮罩 */
+.dialog-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
