@@ -395,6 +395,13 @@ const send = async () => {
   const msg = text.value.trim()
   text.value = ''
   chatMessages.value.push({ content: msg, isUser: true })
+
+  // Agent 面板已激活 → 后续消息走修改流程
+  if (mode.value === 'agent' && modifyLocation.value) {
+    await handleModifyStream(msg)
+    return
+  }
+
   try {
     const { intent } = await routeIntent(msg)
     if (intent === 'plan') {
@@ -405,6 +412,45 @@ const send = async () => {
   } catch (e) {
     console.error('意图路由失败，走普通对话', e)
     handleNormalChat(msg)
+  }
+}
+
+// ========== Agent 模式下的自然语言修改 ==========
+const handleModifyStream = async (msg) => {
+  connecting.value = true
+  // 重置 Agent 状态准备接收新结果
+  planSteps.value = []
+  toolCalls.value = []
+  resultPois.value = []
+  resultSelectedPois.value = []
+  resultRouteInfo.value = null
+  resultPdfUrl.value = null
+  resultTab.value = 'plan'
+
+  const aiIndex = chatMessages.value.length
+  chatMessages.value.push({ content: '', isUser: false })
+
+  try {
+    const { promise } = modifyPlanStream(msg, modifyLocation.value)
+    const response = await promise
+    if (!response.ok) {
+      chatMessages.value[aiIndex].content = '修改请求失败'
+      connecting.value = false
+      return
+    }
+    const handler = createLoveEventHandler(aiIndex)
+    pendingFormCleanup = handler.cleanup
+    await consumeSSE(response, {
+      ...handler,
+      onDone() { connecting.value = false; loveAbort = null; getConversations().then(list => conversations.value = list) },
+      onError(err) { chatMessages.value[aiIndex].content = err.message || '修改出错'; connecting.value = false; loveAbort = null },
+    })
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      chatMessages.value[aiIndex].content = '修改出错: ' + e.message
+    }
+    connecting.value = false
+    loveAbort = null
   }
 }
 
