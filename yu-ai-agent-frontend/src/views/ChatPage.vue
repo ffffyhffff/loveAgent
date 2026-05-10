@@ -161,12 +161,12 @@ const applyLoveEvent = (parsed, target, state) => {
         })
       }
     }
-    // step 完成时标记工具调用结束
+    // step 完成时标记工具调用结束，记录真实耗时
     if (parsed.status === 'done') {
       const runningTc = toolCalls.value.find(tc => tc.stepIndex === idx && tc.status === 'running')
       if (runningTc) {
         runningTc.status = 'done'
-        runningTc.endTime = Date.now()
+        runningTc.duration = parsed.duration || null
       }
     }
     // Update exec msg steps if present

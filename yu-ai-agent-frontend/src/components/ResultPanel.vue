@@ -69,7 +69,10 @@
                   <div class="tc-tool-input">{{ tc.toolInput }}</div>
                 </div>
               </div>
-              <span class="tc-time" v-if="tc.startTime && tc.endTime && tc.endTime > tc.startTime">{{ ((tc.endTime - tc.startTime) / 1000).toFixed(1) }}s</span>
+              <span class="tc-time" v-if="tc.status === 'done'">
+                <template v-if="tc.duration">{{ tc.duration.toFixed(1) }}s</template>
+                <template v-else-if="tc.results.length">{{ tc.results.length }} 个结果</template>
+              </span>
               <span class="tc-time" v-else-if="tc.status === 'running'">执行中...</span>
             </div>
             <div v-if="tc.results.length" class="tc-results">

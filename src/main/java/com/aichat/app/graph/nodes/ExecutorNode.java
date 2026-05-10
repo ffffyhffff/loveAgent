@@ -70,6 +70,7 @@ public class ExecutorNode implements NodeAction {
         String accumulatedContext = state.getAccumulatedContext();
 
         log.info("Executor step {}/{}: {}", currentIndex + 1, steps.size(), currentStep);
+        long stepStartTime = System.currentTimeMillis();
         emit(Map.of("type", "step", "message", currentStep,
                 "status", "active", "index", currentIndex, "total", steps.size()));
         sleep(120);
@@ -79,12 +80,15 @@ public class ExecutorNode implements NodeAction {
             stepResult = executeStepWithLLM(currentStep, location, accumulatedContext);
         }
 
+        double stepDuration = (System.currentTimeMillis() - stepStartTime) / 1000.0;
+
         Map<String, String> results = new LinkedHashMap<>(state.getStepResults());
         results.put(String.valueOf(currentIndex), stepResult);
         String newContext = accumulatedContext + "\nStep " + (currentIndex + 1) + ": " + stepResult;
 
         emit(Map.of("type", "step", "message", "完成：" + currentStep,
-                "status", "done", "index", currentIndex, "total", steps.size()));
+                "status", "done", "index", currentIndex, "total", steps.size(),
+                "duration", stepDuration));
 
         Map<String, Object> update = new HashMap<>();
         update.put(PlanExecuteState.STEP_RESULTS, results);
