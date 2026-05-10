@@ -36,24 +36,15 @@ public class LoveAgentService {
 
     public String classifyIntent(String message) {
         String text = message == null ? "" : message;
-        if (text.contains("约会") || text.contains("行程") || text.contains("攻略")
-                || text.contains("计划") || text.contains("路线") || text.contains("去哪")
-                || text.contains("想去") || text.contains("带我去")) {
+        // 仅明确约会规划类关键词才走 plan
+        boolean isPlan = text.contains("约会") || text.contains("行程安排") || text.contains("攻略")
+                || text.contains("约会计划") || text.contains("出行计划") || text.contains("旅行计划")
+                || text.contains("帮我规划") || text.contains("路线规划") || text.contains("去哪")
+                || text.contains("想去") || text.contains("帮我推荐") || text.contains("附近");
+        if (isPlan) {
             return "plan";
         }
-
-        try {
-            String prompt = """
-                    判断用户消息类型，只返回 plan 或 chat。
-                    plan: 约会规划、行程安排、地点推荐、路线规划、旅游/约会攻略。
-                    chat: 情感咨询或日常聊天。
-                    用户消息：%s
-                    """.formatted(text);
-            return chatModel.chat(prompt).toLowerCase().contains("plan") ? "plan" : "chat";
-        } catch (Exception e) {
-            log.warn("Intent classification failed, fallback to chat", e);
-            return "chat";
-        }
+        return "chat";
     }
 
     public void processMessage(String convId, String userMessage,
