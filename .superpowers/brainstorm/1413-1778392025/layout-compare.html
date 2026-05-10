@@ -1,0 +1,55 @@
+<h2>当前布局 vs 左右分栏方案</h2>
+<p class="subtitle">理解你的想法——左右分栏是有两个面板始终可见，还是可以折叠？</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">现状：单栏聊天 + 右侧滑出面板</div>
+    <div class="mockup-body" style="display:flex;height:320px;gap:4px;">
+      <div style="width:140px;background:#1a1a2e;border-radius:4px;padding:6px;flex-shrink:0">
+        <div style="color:#888;font-size:9px;margin-bottom:4px;">📋 会话列表</div>
+        <div class="placeholder" style="height:20px;font-size:8px;">对话 1</div>
+        <div class="placeholder" style="height:20px;font-size:8px;">对话 2</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div style="background:#16213e;border-radius:4px;padding:4px;flex:1;overflow:hidden">
+          <div style="color:#888;font-size:9px;margin-bottom:3px;">💬 聊天区 (单栏)</div>
+          <div class="placeholder" style="height:16px;width:60%;font-size:7px;margin-bottom:2px;">帮我规划约会路线</div>
+          <div class="placeholder" style="height:24px;width:80%;font-size:7px;margin-bottom:2px;background:rgba(255,107,157,0.15);border:1px solid rgba(255,107,157,0.3)">🤖 好的，我来帮你规划...</div>
+          <div class="placeholder" style="height:16px;width:40%;font-size:7px;margin-left:auto;margin-bottom:2px;">去外滩吧</div>
+          <div class="placeholder" style="height:30px;width:75%;font-size:7px;background:rgba(255,107,157,0.15);border:1px solid rgba(255,107,157,0.3)">📍 路线规划中...</div>
+        </div>
+        <div class="mock-input" style="font-size:7px;height:18px;">输入消息...</div>
+      </div>
+      <div style="width:6px;background:#ff6b9d;border-radius:2px;writing-mode:vertical-lr;font-size:6px;color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;">面板</div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">方案：左右分栏 (持久可见)</div>
+    <div class="mockup-body" style="display:flex;height:320px;gap:4px;">
+      <div style="width:140px;background:#1a1a2e;border-radius:4px;padding:6px;flex-shrink:0">
+        <div style="color:#888;font-size:9px;">📋 会话</div>
+      </div>
+      <div style="flex:1.2;display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div style="background:#16213e;border-radius:4px;padding:4px;flex:1;overflow:hidden">
+          <div style="color:#888;font-size:9px;margin-bottom:3px;">💬 聊天 (可窄)</div>
+          <div class="placeholder" style="height:14px;width:80%;font-size:7px;">帮我规划约会路线</div>
+          <div class="placeholder" style="height:14px;width:65%;font-size:7px;margin-left:auto">去外滩吧</div>
+        </div>
+        <div class="mock-input" style="font-size:7px;height:18px;">输入...</div>
+      </div>
+      <div style="flex:1.8;display:flex;flex-direction:column;gap:3px;min-width:0">
+        <div style="background:#0f3460;border-radius:4px;padding:4px;flex:1;overflow:hidden">
+          <div style="color:#ff6b9d;font-size:9px;margin-bottom:3px;">🧠 思考过程</div>
+          <div class="placeholder" style="height:10px;width:90%;font-size:6px;margin-bottom:1px;">正在分析用户意图...</div>
+          <div class="placeholder" style="height:10px;width:85%;font-size:6px;margin-bottom:1px;">确定关键词：约会、外滩</div>
+          <div class="placeholder" style="height:10px;width:70%;font-size:6px;margin-bottom:1px;">规划步骤 1/3...</div>
+          <div style="height:1px;background:#ff6b9d33;margin:3px 0"></div>
+          <div style="color:#4ecca3;font-size:9px;margin-bottom:3px;">🔧 工具调用 & 结果</div>
+          <div class="placeholder" style="height:10px;width:95%;font-size:6px;margin-bottom:1px;background:rgba(78,204,163,0.15)">✅ 搜索POI: 外滩(4.8★)</div>
+          <div class="placeholder" style="height:10px;width:95%;font-size:6px;margin-bottom:1px;background:rgba(78,204,163,0.15)">🗺️ 路线规划: 2.3km, 15min</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

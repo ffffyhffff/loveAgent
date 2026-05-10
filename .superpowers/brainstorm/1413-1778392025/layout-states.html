@@ -1,0 +1,60 @@
+<h2>第四块：布局状态 & 响应式</h2>
+<p class="subtitle">三种模式 + 移动端适配</p>
+
+<div class="section">
+  <h3>桌面端三种状态</h3>
+</div>
+
+<div class="mockup" style="margin-bottom:12px">
+  <div class="mockup-header">状态 ① 简单对话 — 传统聊天视图</div>
+  <div class="mockup-body" style="display:flex;height:60px;gap:4px;align-items:center">
+    <div style="width:120px;background:#1a1a2e;padding:6px;border-radius:4px;font-size:9px;color:#888">📋 会话列表</div>
+    <div style="flex:1;background:#16213e;padding:6px;border-radius:4px;font-size:9px;color:#e0e0e0">
+      💬 聊天区 (宽松，气泡为主) — Q&A、RAG 检索等
+    </div>
+    <div style="color:#888;font-size:11px;padding:4px">→</div>
+  </div>
+  <div style="padding:8px;font-size:10px;color:#666">
+    触发条件：用户问普通问题、RAG检索等。只发 <code>text</code> 事件，不发 <code>plan</code>。
+  </div>
+</div>
+
+<div class="mockup" style="margin-bottom:12px">
+  <div class="mockup-header">状态 ② Agent 执行中 — 三栏展开</div>
+  <div class="mockup-body" style="display:flex;height:60px;gap:4px;align-items:center">
+    <div style="width:100px;background:#1a1a2e;padding:6px;border-radius:4px;font-size:9px;color:#888">📋 会话</div>
+    <div style="width:140px;background:#16213e;padding:6px;border-radius:4px;font-size:9px;color:#e0e0e0">💬 聊天 (收窄)</div>
+    <div style="width:140px;background:#0f3460;padding:6px;border-radius:4px;font-size:9px;color:#ff6b9d">🧠 思考过程</div>
+    <div style="flex:1;background:#0f3460;padding:6px;border-radius:4px;font-size:9px;color:#4ecca3">🔧 工具/计划/地图/PDF</div>
+    <div style="color:#888;font-size:11px;padding:4px">← 可拖拽</div>
+  </div>
+  <div style="padding:8px;font-size:10px;color:#666">
+    触发：收到 <code>plan</code> 事件 → 自动展开，过渡动画 300ms ease。分栏宽度可拖拽调整。
+  </div>
+</div>
+
+<div class="mockup" style="margin-bottom:12px">
+  <div class="mockup-header">状态 ③ 执行完成 — 保持展开</div>
+  <div class="mockup-body" style="display:flex;height:40px;gap:4px;align-items:center">
+    <div style="width:100px;background:#1a1a2e;padding:6px;border-radius:4px;font-size:9px;color:#888">📋 会话</div>
+    <div style="width:140px;background:#16213e;padding:6px;border-radius:4px;font-size:9px;color:#e0e0e0">💬 总结消息</div>
+    <div style="width:140px;background:#1a1a2e;padding:6px;border-radius:4px;font-size:9px;color:#666">✅ 已完成</div>
+    <div style="flex:1;background:#1a1a2e;padding:6px;border-radius:4px;font-size:9px;color:#888">📄 PDF 可下载</div>
+  </div>
+  <div style="padding:8px;font-size:10px;color:#666">
+    <code>done</code> 事件后三栏保持，用户可查看完整结果。右上角 [✕] 按钮手动收起到状态①。
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <h3>移动端 (< 768px)</h3>
+</div>
+<div style="background:var(--color-surface);border-radius:8px;padding:12px;font-size:12px;line-height:1.7">
+  <p>移动端三栏变三屏，底部 TabBar 切换：</p>
+  <div style="display:flex;gap:8px;justify-content:center;margin:10px 0">
+    <span style="background:#ff6b9d22;color:#ff6b9d;padding:4px 12px;border-radius:4px;font-size:10px">💬 聊天</span>
+    <span style="background:#333;color:#888;padding:4px 12px;border-radius:4px;font-size:10px">🧠 思考</span>
+    <span style="background:#333;color:#888;padding:4px 12px;border-radius:4px;font-size:10px">🔧 结果</span>
+  </div>
+  <p style="color:#666">简单对话时只显示聊天。Agent 模式显示底部三个 Tab，当前 Tab 有小红点提示有更新。</p>
+</div>

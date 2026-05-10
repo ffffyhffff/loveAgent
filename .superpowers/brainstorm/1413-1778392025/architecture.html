@@ -1,0 +1,37 @@
+<h2>第一块：组件架构</h2>
+<p class="subtitle">现在的 Chat.vue 有 1326 行，所有逻辑混在一起。新设计需要拆分</p>
+
+<div class="mockup" style="margin-bottom:16px">
+  <div class="mockup-header">重构后的组件树</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:12px;line-height:1.8">
+<pre style="margin:0;color:#e0e0e0">
+ChatPage.vue                    ← 顶层：布局容器 + 模式切换逻辑
+├── Sidebar.vue                 ← 会话列表 (已有，基本不改)
+├── ChatPanel.vue               ← 左栏：聊天消息 + 输入框
+│   ├── MessageBubble.vue       ←   单条消息气泡 (用户/AI)
+│   ├── StepProgress.vue        ←   内联步骤进度 (已有)
+│   └── InputBar.vue            ←   底部输入组件
+├── ThinkingPanel.vue           ← 中栏：思考过程 (新增)
+│   └── 流式文本 + 步骤卡片
+└── ResultPanel.vue             ← 右栏：结构化结果 (改造 RightPanel)
+    ├── ToolCallCard.vue        ←   工具调用卡片
+    ├── PlanBoard.vue           ←   执行计划看板
+    ├── RouteMap.vue            ←   地图路线 (已有)
+    ├── PoiList.vue             ←   POI 列表
+    └── PdfDownload.vue         ←   PDF 下载
+</pre>
+  </div>
+</div>
+
+<div class="pros-cons">
+  <div class="pros"><h4>相比现在的改进</h4><ul>
+    <li>Chat.vue 1326行 → ChatPage.vue ~150行 (容器)</li>
+    <li>每个面板独立开发、独立测试</li>
+    <li>SSE 事件路由逻辑集中在 ChatPage，各面板只接收自己的数据</li>
+    <li>可复用：ResultPanel 就是 RightPanel 的升级版</li>
+  </ul></div>
+  <div class="cons"><h4>需要注意</h4><ul>
+    <li>组件间通信：兄弟组件不直接通信，通过 ChatPage 中转</li>
+    <li>状态管理：如果不用 Pinia，用 provide/inject 或 props down / events up</li>
+  </ul></div>
+</div>

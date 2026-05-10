@@ -1,0 +1,42 @@
+<h2>第二块：SSE 事件路由 & 数据流</h2>
+<p class="subtitle">目前所有 SSE 事件都在 Chat.vue 里处理，现在要分发给三个面板</p>
+
+<div class="mockup" style="margin-bottom:16px">
+  <div class="mockup-header">事件分发规则</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:11px;line-height:1.7">
+<pre style="margin:0;color:#e0e0e0">
+SSE Event      →  ChatPanel    ThinkingPanel   ResultPanel
+─────────────────────────────────────────────────────────
+text           →  ✅ 气泡追加    —               —
+plan / step    →  —            ✅ 步骤卡片       ✅ 计划看板
+section        →  —            —               ✅ POI 列表
+review         →  —            —               ✅ 详情卡片
+placeDetail    →  —            —               ✅ 地点详情
+pois           →  —            —               ✅ POI 选择器
+map            →  —            —               ✅ 地图路线
+pdf            →  —            —               ✅ 下载卡片
+form           →  ✅ 表单提示    —               —
+done           →  ✅ 完成标记    ✅ 完成标记      ✅ 完成标记
+error          →  ✅ 错误提示    ✅ 错误提示      ✅ 错误提示
+</pre>
+  </div>
+</div>
+
+<div style="display:flex;gap:16px;margin-top:12px">
+  <div style="flex:1;background:var(--color-surface);border-radius:8px;padding:12px">
+    <h3 style="margin-top:0">模式切换逻辑</h3>
+    <p style="font-size:13px;line-height:1.6">
+      <b>简单对话模式：</b>收到第一个 <code>plan</code> 或 <code>step</code> 事件前，只显示 ChatPanel。<br>
+      <b>Agent 执行模式：</b>一旦收到 <code>plan</code> 事件 → 自动展开三栏，ThinkingPanel + ResultPanel 切入。<br>
+      <b>回退：</b><code>done</code> 事件后保持展开，用户可手动收起。下一次对话开始时重置。
+    </p>
+  </div>
+  <div style="flex:1;background:var(--color-surface);border-radius:8px;padding:12px">
+    <h3 style="margin-top:0">状态管理方案</h3>
+    <p style="font-size:13px;line-height:1.6">
+      不加 Pinia，用 Vue 3 的 <code>provide/inject</code>：<br>
+      ChatPage 用 <code>reactive()</code> 维护共享状态，通过 <code>provide()</code> 注入。子组件用 <code>inject()</code> 读取。<br>
+      或者简单用 props down / emits up，因为层级只有 1-2 层。
+    </p>
+  </div>
+</div>

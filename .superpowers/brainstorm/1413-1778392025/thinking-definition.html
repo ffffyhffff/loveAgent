@@ -1,0 +1,33 @@
+<h2>"思考过程"这个概念，你觉得哪个最接近？</h2>
+<p class="subtitle">这会决定左边面板展示什么内容，以及后端需要做什么调整</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Agent 执行步骤流</h3>
+      <p>就是现在 SSE 的 <code>plan</code> + <code>step</code> 事件。展示：意图识别 → 搜索POI → 筛选排序 → 路线规划 → 生成结果。类似已有的 StepProgress 组件，但更详细，包含每个步骤的耗时、输入输出。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>LLM 原始推理链 (Chain of Thought)</h3>
+      <p>展示大模型内部的推理过程。类似 DeepSeek-R1 / o1 的思维链——"用户想要规划约会，关键词有外滩、浪漫、晚餐。我应该先搜索外滩附近的餐厅，再规划步行路线..." 这是模型在输出最终答案前的内部独白。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>两者混合：推理 + 执行</h3>
+      <p>左边上半部分显示 LLM 推理思路，下半部分显示 Agent 工具调用的实时状态和结果。给用户一个完整的"AI 在做什么"的透明视图。类似 ChatGPT Canvas 或 Cursor 的 Agent 模式。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>结构化计划看板</h3>
+      <p>不是流式文本，而是结构化的任务卡片——每个步骤是一个卡片，显示：状态图标、标题、子任务列表、关联的工具调用结果。类似于项目管理工具的看板视图，适合多步骤复杂任务。</p>
+    </div>
+  </div>
+</div>

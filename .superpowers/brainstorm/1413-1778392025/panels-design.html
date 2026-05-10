@@ -1,0 +1,99 @@
+<h2>第三块：ThinkingPanel & ResultPanel 设计</h2>
+<p class="subtitle">两个新增面板的内部结构</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">🧠 ThinkingPanel — 思考过程</div>
+    <div class="mockup-body" style="height:360px;overflow-y:auto;font-size:12px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#ff6b9d">
+        <span>⚡</span> <span style="font-size:11px">Agent 已启动 · qwen-plus</span>
+      </div>
+      <div style="border-left:2px solid #ff6b9d55;padding-left:10px;margin-bottom:10px">
+        <div style="color:#aaa;font-size:10px;margin-bottom:2px">意图分析</div>
+        <div style="color:#ccc;font-size:11px">用户想规划一次约会，关键词：浪漫、外滩、晚餐。需要搜索周边POI并规划步行路线。</div>
+      </div>
+      <div style="border-left:2px solid #ff6b9d55;padding-left:10px;margin-bottom:10px">
+        <div style="color:#aaa;font-size:10px;margin-bottom:2px">Plan 生成</div>
+        <div style="color:#ccc;font-size:11px">制定 4 步执行计划：搜索餐厅 → 搜索景点 → 规划路线 → 生成PDF</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:#ff6b9d11;border-radius:4px;margin-bottom:8px">
+        <div style="width:6px;height:6px;background:#4ecca3;border-radius:50%;animation:pulse 1s infinite"></div>
+        <span style="color:#4ecca3;font-size:10px">Step 1/4: 搜索外滩附近餐厅...</span>
+      </div>
+      <div style="border-left:2px solid #ff6b9d33;padding-left:10px;margin-bottom:6px">
+        <div style="color:#666;font-size:10px;margin-bottom:1px">Step 2 · 等待中</div>
+        <div style="color:#555;font-size:10px">搜索附近景点</div>
+      </div>
+      <div style="border-left:2px solid #ff6b9d33;padding-left:10px;margin-bottom:6px">
+        <div style="color:#666;font-size:10px;margin-bottom:1px">Step 3 · 等待中</div>
+        <div style="color:#555;font-size:10px">规划步行路线</div>
+      </div>
+      <div style="border-left:2px solid #ff6b9d33;padding-left:10px">
+        <div style="color:#666;font-size:10px;margin-bottom:1px">Step 4 · 等待中</div>
+        <div style="color:#555;font-size:10px">生成约会计划PDF</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">🔧 ResultPanel — 结果面板 (Tab 切换)</div>
+    <div class="mockup-body" style="height:360px;overflow-y:auto;font-size:12px">
+      <div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:6px">
+        <span style="background:#ff6b9d22;color:#ff6b9d;padding:2px 8px;border-radius:4px;font-size:10px">📋 计划</span>
+        <span style="color:#888;padding:2px 8px;font-size:10px">🔧 工具</span>
+        <span style="color:#888;padding:2px 8px;font-size:10px">🗺️ 地图</span>
+        <span style="color:#888;padding:2px 8px;font-size:10px">📄 PDF</span>
+      </div>
+      <div style="font-size:11px;color:#ccc;line-height:1.6">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="color:#4ecca3">✓</span> 搜索外滩附近餐厅
+        </div>
+        <div style="background:#1a1a2e;border-radius:4px;padding:6px;margin-bottom:8px;font-size:10px">
+          <div>📍 M1NT 餐厅 · 4.8★ · ¥680/人</div>
+          <div>📍 外滩3号 · 4.6★ · ¥520/人</div>
+          <div>📍 Jean Georges · 4.7★ · ¥890/人</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="color:#ff6b9d">◌</span> 搜索附近景点
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="color:#888">○</span> 规划步行路线
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="color:#888">○</span> 生成约会计划PDF
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:14px;background:var(--color-surface);border-radius:8px;padding:12px">
+  <h3 style="margin-top:0">ResultPanel Tab 规则</h3>
+  <table style="width:100%;font-size:12px;border-collapse:collapse">
+    <tr style="border-bottom:1px solid #333">
+      <td style="padding:6px"><b>Tab</b></td>
+      <td style="padding:6px"><b>触发事件</b></td>
+      <td style="padding:6px"><b>展示内容</b></td>
+    </tr>
+    <tr style="border-bottom:1px solid #333">
+      <td style="padding:6px">📋 计划</td>
+      <td style="padding:6px"><code>plan</code> / <code>step</code></td>
+      <td style="padding:6px">StepProgress 步骤进度 + 各步骤关联的结果摘要</td>
+    </tr>
+    <tr style="border-bottom:1px solid #333">
+      <td style="padding:6px">🔧 工具</td>
+      <td style="padding:6px"><code>section</code> / <code>review</code></td>
+      <td style="padding:6px">工具调用卡片：搜索词、返回数据量、耗时</td>
+    </tr>
+    <tr style="border-bottom:1px solid #333">
+      <td style="padding:6px">🗺️ 地图</td>
+      <td style="padding:6px"><code>map</code> / <code>pois</code></td>
+      <td style="padding:6px">RouteMap 高德地图 + POI 标记 + 路线</td>
+    </tr>
+    <tr>
+      <td style="padding:6px">📄 PDF</td>
+      <td style="padding:6px"><code>pdf</code></td>
+      <td style="padding:6px">PDF 预览 + 下载链接</td>
+    </tr>
+  </table>
+</div>

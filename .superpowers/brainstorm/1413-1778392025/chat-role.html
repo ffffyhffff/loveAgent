@@ -1,0 +1,26 @@
+<h2>原来的聊天区怎么处理？</h2>
+<p class="subtitle">左右分栏之后，对话气泡还有没有必要保留？</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>三栏：聊天 | 思考 | 结果</h3>
+      <p>聊天区保留但变窄，作为左侧栏。中间放推理过程，右侧放工具结果+地图。<br>聊天仍可正常输入，但 AI 的"长文本回复"变成结构化展示。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>两栏：思考+执行 | 结果+地图</h3>
+      <p>聊天区弱化为底部输入条（类似 Slack / 终端风格）。<br>用户输入在底部，AI 的回复全部在左右两栏中结构化展示，不再有传统气泡。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>可切换模式</h3>
+      <p>默认是现在的聊天视图，当 Agent 开始执行任务时，自动展开为左右分栏视图。<br>简单对话用气泡，复杂任务用分栏。类似 Cursor 的 Chat vs Agent 切换。</p>
+    </div>
+  </div>
+</div>

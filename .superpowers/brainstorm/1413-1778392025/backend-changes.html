@@ -1,0 +1,50 @@
+<h2>第五块：后端改动评估</h2>
+<p class="subtitle">当前 SSE 事件够不够用？需要加什么？</p>
+
+<div style="display:flex;gap:16px;margin-top:12px">
+  <div style="flex:1;background:var(--color-surface);border-radius:8px;padding:12px">
+    <h3 style="margin-top:0;color:#4ecca3">✅ 已有的，直接复用</h3>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <tr style="border-bottom:1px solid #333"><td style="padding:4px"><code>text</code></td><td style="padding:4px">ChatPanel 气泡追加</td></tr>
+      <tr style="border-bottom:1px solid #333"><td style="padding:4px"><code>plan / step</code></td><td style="padding:4px">ThinkingPanel 步骤 + ResultPanel 计划</td></tr>
+      <tr style="border-bottom:1px solid #333"><td style="padding:4px"><code>section / review</code></td><td style="padding:4px">ResultPanel POI 列表 / 详情</td></tr>
+      <tr style="border-bottom:1px solid #333"><td style="padding:4px"><code>pois / map</code></td><td style="padding:4px">ResultPanel POI选择 + 地图</td></tr>
+      <tr style="border-bottom:1px solid #333"><td style="padding:4px"><code>pdf</code></td><td style="padding:4px">ResultPanel 下载</td></tr>
+      <tr style="border-bottom:1px solid #333"><td style="padding:4px"><code>form</code></td><td style="padding:4px">ChatPanel 表单提示</td></tr>
+      <tr><td style="padding:4px"><code>done / error</code></td><td style="padding:4px">各面板完成/错误状态</td></tr>
+    </table>
+  </div>
+
+  <div style="flex:1;background:var(--color-surface);border-radius:8px;padding:12px">
+    <h3 style="margin-top:0;color:#ff6b9d">🆕 建议新增</h3>
+    <div style="font-size:11px;line-height:1.7;color:#ccc">
+      <p><code style="background:#ff6b9d22;padding:1px 4px;border-radius:2px">thinking</code> — 思考流式文本</p>
+      <p style="color:#888;margin-top:-8px">Agent 内部的推理文字，如："分析用户意图... 拆解为3个子任务..."</p>
+      <p style="margin-top:10px">目前 qwen-plus 不暴露原生 CoT，但可以：</p>
+      <ul style="color:#888">
+        <li>在后端 Agent 的 prompt 中要求先输出推理再调用工具</li>
+        <li>把工具调用前的文本以 <code>thinking</code> 事件发送</li>
+        <li>或直接用 <code>step.message</code> 作为思考内容</li>
+      </ul>
+      <p style="margin-top:10px;color:#ff6b9d"><b>推荐：先用 <code>plan.steps[].message</code> + 每个 step 的描述作为思考内容，零后端改动先跑通，后续再优化。</b></p>
+    </div>
+  </div>
+</div>
+
+<div style="background:var(--color-surface);border-radius:8px;padding:12px;margin-top:12px">
+  <h3 style="margin-top:0">最终方案：零后端改动启动</h3>
+  <table style="width:100%;font-size:12px;border-collapse:collapse">
+    <tr style="border-bottom:1px solid #333">
+      <td style="padding:6px;color:#888;width:80px">ThinkingPanel</td>
+      <td style="padding:6px">展示 <code>plan.steps[]</code> + <code>step</code> 事件的 <code>message</code> 字段，流式追加到"推理链"区域。每个 step 一条带左侧竖线的思考块。</td>
+    </tr>
+    <tr style="border-bottom:1px solid #333">
+      <td style="padding:6px;color:#888">ResultPanel</td>
+      <td style="padding:6px">已有数据结构完全够用——plan/step 喂计划Tab，section 喂工具Tab，map/pois 喂地图Tab，pdf 喂PDF Tab。</td>
+    </tr>
+    <tr>
+      <td style="padding:6px;color:#888">ChatPanel</td>
+      <td style="padding:6px">只消费 <code>text</code> 事件，保持传统气泡体验。用户输入区下方加一个"当前状态"小字提示（如"AI 正在规划中..."）。</td>
+    </tr>
+  </table>
+</div>

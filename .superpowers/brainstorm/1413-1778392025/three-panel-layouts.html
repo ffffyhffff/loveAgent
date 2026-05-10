@@ -1,0 +1,28 @@
+<h2>三栏布局：三种实现方式</h2>
+<p class="subtitle">你的需求：左=聊天 | 中=思考过程 | 右=工具调用/计划/地图/PDF</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>固定三栏 + 可折叠侧边栏</h3>
+      <p>📋会话列表(可折叠) | 💬聊天 320px | 🧠思考 360px | 🔧结果 flex:1</p>
+      <p>每栏有独立滚动条，宽度可通过拖拽调整。右侧结果区内部用 Tab 切换：<b>执行计划 / 工具调用 / 地图路线 / PDF</b>。简单对话时右侧可折叠为图标条。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>聊天 + 右侧双区纵向分栏</h3>
+      <p>📋会话列表 | 💬聊天 flex:1 | 🧠思考 → 🔧结果 (纵向堆叠)</p>
+      <p>右侧不是两栏而是上下分区——上半是思考过程（流式文字），下半是结构化结果面板（Tabs: 计划/工具/地图/PDF）。中间有拖拽分界线。视觉更简洁，适合思考→执行的线性流程。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>智能自适应模式（推荐）</h3>
+      <p>默认是聊天+紧凑右侧面板。当 Agent 开始执行任务时，自动展开为三栏——左侧聊天收窄，中间流式展示思考过程，右侧根据事件类型自动切换：收到 tool 调用→显示工具面板，收到 map→显示地图，收到 pdf→显示下载面板。简单对话时只保留聊天+输入框，右侧自动隐藏。</p>
+    </div>
+  </div>
+</div>
