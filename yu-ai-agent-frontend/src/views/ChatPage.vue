@@ -25,21 +25,14 @@
         @aiModify="showModifyInput = true"
       />
 
-      <ThinkingPanel
-        v-if="mode === 'agent'"
-        :blocks="thinkingBlocks"
-        :streaming="connecting"
-      />
-
       <ResultPanel
         v-if="mode === 'agent'"
-        :activeTab="resultTab"
         :steps="planSteps"
         :pois="resultPois"
         :selectedPois="resultSelectedPois"
         :routeInfo="resultRouteInfo"
         :pdfUrl="resultPdfUrl"
-        @update:activeTab="resultTab = $event"
+        :streaming="connecting"
         @close="mode = 'chat'"
       />
     </div>
@@ -74,7 +67,6 @@ import {
 import { consumeSSE } from '../utils/sse'
 import Sidebar from '../components/Sidebar.vue'
 import ChatPanel from '../components/ChatPanel.vue'
-import ThinkingPanel from '../components/ThinkingPanel.vue'
 import ResultPanel from '../components/ResultPanel.vue'
 import DynamicForm from '../components/DynamicForm.vue'
 import PoiSelector from '../components/PoiSelector.vue'
@@ -91,7 +83,6 @@ const connecting = ref(false)
 
 // ==================== Agent 模式 ====================
 const mode = ref('chat')           // 'chat' | 'agent'
-const thinkingBlocks = ref([])     // [{text, status: 'pending'|'active'|'done'}]
 const planSteps = ref([])          // [{label, status, detail}]
 const resultTab = ref('plan')      // 'plan' | 'tools' | 'map' | 'pdf'
 const resultPois = ref([])
@@ -111,7 +102,7 @@ const modifyLocation = ref('')
 
 // provide 给子组件
 provide('agentState', {
-  mode, thinkingBlocks, planSteps, resultTab, connecting,
+  mode, planSteps, resultTab, connecting,
   resultPois, resultSelectedPois, resultRouteInfo, resultPdfUrl,
 })
 
@@ -127,18 +118,13 @@ const applyLoveEvent = (parsed, target, state) => {
     }
   }
 
-  // plan → mode switch, planSteps, thinkingBlocks
+  // plan → mode switch, planSteps
   if (parsed.type === 'plan' && parsed.steps) {
     mode.value = 'agent'
-    resultTab.value = 'plan'
     planSteps.value = parsed.steps.map((s, i) => ({
       label: s.message || s.text || `步骤 ${i + 1}`,
       status: s.status || 'pending',
       detail: s.detail || '',
-    }))
-    thinkingBlocks.value = parsed.steps.map((s, i) => ({
-      text: s.message || s.text || `步骤 ${i + 1}`,
-      status: 'pending',
     }))
     // 也显示执行面板在聊天流中
     const execMsg = { content: '', isUser: false, type: 'execution',
@@ -150,16 +136,12 @@ const applyLoveEvent = (parsed, target, state) => {
     state._execMsg = execMsg
   }
 
-  // step → update planSteps + thinkingBlocks
+  // step → update planSteps
   if (parsed.type === 'step') {
     const idx = parsed.index
     if (idx != null && idx < planSteps.value.length) {
       planSteps.value[idx].status = parsed.status || planSteps.value[idx].status
       planSteps.value[idx].label = parsed.message || planSteps.value[idx].label
-    }
-    if (idx != null && idx < thinkingBlocks.value.length) {
-      thinkingBlocks.value[idx].status = parsed.status || 'pending'
-      thinkingBlocks.value[idx].text = parsed.message || thinkingBlocks.value[idx].text
     }
     // Update exec msg steps if present
     if (state._execMsg) {
@@ -324,7 +306,6 @@ const switchConversation = async (id) => {
   sidebarOpen.value = false
   // 重置 Agent 状态
   mode.value = 'chat'
-  thinkingBlocks.value = []
   planSteps.value = []
   resultPois.value = []
   resultSelectedPois.value = []
@@ -342,7 +323,6 @@ const newConversation = async () => {
     activeId.value = id
     chatMessages.value = []
     mode.value = 'chat'
-    thinkingBlocks.value = []
     planSteps.value = []
     resultPois.value = []
     resultSelectedPois.value = []
@@ -635,11 +615,10 @@ const getCatIcon = (label) => {
 .chat-main:not(.agent-mode) { flex-direction: column; }
 .chat-main:not(.agent-mode) > :deep(.chat-panel) { flex: 1; }
 
-/* ======== Agent 模式：三栏并排 ======== */
+/* ======== Agent 模式：两栏并排（聊天 | 结果） ======== */
 .chat-main.agent-mode { flex-direction: row; }
-.chat-main.agent-mode > :deep(.chat-panel) { width: 280px; flex-shrink: 0; }
-.chat-main.agent-mode > :deep(.thinking-panel) { width: 320px; flex-shrink: 0; }
-.chat-main.agent-mode > :deep(.result-panel) { flex: 1; min-width: 280px; }
+.chat-main.agent-mode > :deep(.chat-panel) { width: 300px; flex-shrink: 0; }
+.chat-main.agent-mode > :deep(.result-panel) { flex: 1; min-width: 340px; }
 
 /* ======== 移动端 ======== */
 @media (max-width: 768px) {
@@ -651,8 +630,7 @@ const getCatIcon = (label) => {
   .sidebar-overlay.show { opacity: 1; pointer-events: auto; }
 
   .chat-main.agent-mode { flex-direction: column; }
-  .chat-main.agent-mode > :deep(.chat-panel),
-  .chat-main.agent-mode > :deep(.thinking-panel) { display: none; }
+  .chat-main.agent-mode > :deep(.chat-panel) { display: none; }
   .chat-main.agent-mode > :deep(.result-panel) { flex: 1; }
 }
 </style>
