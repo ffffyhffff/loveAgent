@@ -72,4 +72,9 @@ watch(() => props.blocks.length, () => nextTick(() => {
 .think-text { font-size: 0.76rem; color: #ccc; line-height: 1.5; }
 .think-empty { color: #555; font-size: 0.76rem; text-align: center; padding: 40px 0; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-panel { animation: none; }
+  .dot.active { animation: none; opacity: 0.8; }
+}
 </style>
