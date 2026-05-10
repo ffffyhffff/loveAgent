@@ -321,71 +321,192 @@ public class ChatController {
     }
 
     /**
-     * AI 对话式修改约会计划（SSE 流）
+     * AI 对话式修改约会计划（SSE 流）— 支持 replace / remove / add / regenerate / retry
      */
+    @SuppressWarnings("unchecked")
     @PostMapping(value = "/modify-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter modifyPlan(@RequestBody Map<String, String> request) {
+    public SseEmitter modifyPlan(@RequestBody Map<String, Object> request) {
         SseEmitter emitter = new SseEmitter(300000L);
 
-        String message = request.get("message");
-        String location = request.get("location");
+        String message = (String) request.get("message");
+        String location = (String) request.getOrDefault("location", "未知地点");
+        String convId = (String) request.get("convId");
+        List<Map<String, Object>> currentPois = (List<Map<String, Object>>) request.getOrDefault("currentPois", List.of());
 
         CompletableFuture.runAsync(() -> {
             try {
-                // 用 LLM 解析用户意图
-                String parsePrompt = "用户想修改约会计划。用户说：" + message +
-                        "\n\n请以 JSON 格式回复修改意图，格式：{\"keyword\":\"搜索关键词\",\"category\":\"要替换的类别名称\"}" +
-                        "\n例如用户说\"换成茶馆\" → {\"keyword\":\"茶馆\",\"category\":\"下午茶\"}" +
-                        "\n例如用户说\"晚餐想去火锅\" → {\"keyword\":\"火锅\",\"category\":\"晚餐\"}" +
-                        "\n只回复 JSON，不要其他内容。";
-
                 dev.langchain4j.model.chat.ChatLanguageModel model =
                         ((LoveAgentService) loveAgentService).getChatModel();
+
+                // 构建当前计划摘要
+                StringBuilder planSummary = new StringBuilder("当前计划包含以下地点：\n");
+                if (currentPois != null) {
+                    for (int i = 0; i < currentPois.size(); i++) {
+                        Map<String, Object> p = currentPois.get(i);
+                        planSummary.append("  ").append(i + 1).append(". ")
+                                .append(p.getOrDefault("name", "未知")).append("\n");
+                    }
+                } else {
+                    planSummary.append("  (暂无)\n");
+                }
+
+                // LLM 自主决策操作类型
+                String parsePrompt = "用户想修改约会计划。\n\n" +
+                        planSummary + "\n" +
+                        "用户说：" + message + "\n\n" +
+                        "判断用户意图，以 JSON 回复：\n" +
+                        "{\"action\":\"replace|remove|add|regenerate|retry\",\"reason\":\"简短说明\"}\n" +
+                        "- replace: 用户想把某个地点换成别的 → 加 keyword(搜索词), targetIndex(从1开始,可选)\n" +
+                        "- remove: 用户想删除某个地点 → 加 targetIndex(从1开始)\n" +
+                        "- add: 用户想增加新类型地点 → 加 keyword(搜索词)\n" +
+                        "- regenerate: 用户只想重新生成PDF/总结 → 无需额外字段\n" +
+                        "- retry: 用户不满意整体，想重新规划 → 加 feedback(反馈内容)\n" +
+                        "只回复 JSON。";
+
                 String llmReply = model.chat(parsePrompt);
                 log.info("AI 修改意图解析: {}", llmReply);
 
-                // 解析 JSON
-                String keyword = null;
-                String category = null;
+                cn.hutool.json.JSONObject intent;
                 try {
-                    String cleaned = llmReply.replaceAll("```json|```", "").trim();
-                    cn.hutool.json.JSONObject json = cn.hutool.json.JSONUtil.parseObj(cleaned);
-                    keyword = json.getStr("keyword");
-                    category = json.getStr("category");
+                    intent = cn.hutool.json.JSONUtil.parseObj(llmReply.replaceAll("```json|```", "").trim());
                 } catch (Exception e) {
-                    log.warn("解析意图失败: {}", llmReply);
-                }
-
-                if (keyword == null || keyword.isEmpty()) {
-                    emitter.send(Map.of("type", "text", "content", "抱歉，我没有理解你的修改意图，请再试一次～"));
+                    emitter.send(Map.of("type", "text", "content", "抱歉，我没有理解你的意图，请换个说法试试～"));
                     emitter.send(Map.of("type", "done"));
                     emitter.complete();
                     return;
                 }
 
-                emitter.send(Map.of("type", "step", "message", "正在搜索 " + keyword + "..."));
+                String action = intent.getStr("action", "replace");
+                String reason = intent.getStr("reason", "");
+                log.info("修改操作: action={}, reason={}", action, reason);
 
-                // 搜索替代 POI
-                List<Map<String, Object>> alternatives = datePlanTools.searchAlternative(keyword, location);
+                List<Map<String, Object>> updatedPois = new ArrayList<>(currentPois != null ? currentPois : List.of());
 
-                if (alternatives.isEmpty()) {
-                    emitter.send(Map.of("type", "text", "content", "抱歉，没有找到相关的 " + keyword + "，请换个关键词试试～"));
-                    emitter.send(Map.of("type", "done"));
-                    emitter.complete();
-                    return;
+                switch (action) {
+                    case "remove" -> {
+                        int idx = intent.getInt("targetIndex", -1);
+                        if (idx >= 1 && idx <= updatedPois.size()) {
+                            Map<String, Object> removed = updatedPois.remove(idx - 1);
+                            emitter.send(Map.of("type", "text", "content",
+                                    "已从计划中移除 " + removed.getOrDefault("name", "该地点") + "～"));
+                        } else {
+                            emitter.send(Map.of("type", "text", "content", "抱歉，没有找到要移除的地点，请指明是第几个～"));
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                            return;
+                        }
+                    }
+                    case "replace" -> {
+                        String keyword = intent.getStr("keyword", "");
+                        int targetIdx = intent.getInt("targetIndex", -1);
+                        if (keyword.isEmpty()) {
+                            emitter.send(Map.of("type", "text", "content", "好的！请告诉我你想换成什么类型的地方？"));
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                            return;
+                        }
+                        emitter.send(Map.of("type", "step", "message", "正在搜索 " + keyword + " 替代方案...",
+                                "status", "active", "index", 0, "total", 1));
+
+                        List<Map<String, Object>> alts = datePlanTools.searchAlternative(keyword, location);
+                        if (!alts.isEmpty()) {
+                            Map<String, Object> best = alts.get(0);
+                            if (targetIdx >= 1 && targetIdx <= updatedPois.size()) {
+                                updatedPois.set(targetIdx - 1, best);
+                            } else {
+                                updatedPois.add(best);
+                            }
+                            emitter.send(Map.of("type", "text", "content",
+                                    "已将计划更新为 " + best.getOrDefault("name", keyword) + "！"));
+                        } else {
+                            emitter.send(Map.of("type", "text", "content",
+                                    "抱歉，没有找到 " + keyword + " 的替代方案，请换个关键词试试～"));
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                            return;
+                        }
+                    }
+                    case "add" -> {
+                        String keyword = intent.getStr("keyword", "");
+                        if (keyword.isEmpty()) {
+                            emitter.send(Map.of("type", "text", "content", "好的！请告诉我想增加什么类型的地方？"));
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                            return;
+                        }
+                        emitter.send(Map.of("type", "step", "message", "正在搜索 " + keyword + "...",
+                                "status", "active", "index", 0, "total", 1));
+
+                        List<Map<String, Object>> extras = datePlanTools.searchAlternative(keyword, location);
+                        if (!extras.isEmpty()) {
+                            updatedPois.add(extras.get(0));
+                            emitter.send(Map.of("type", "text", "content",
+                                    "已添加 " + extras.get(0).getOrDefault("name", keyword) + " 到计划中！"));
+                        } else {
+                            emitter.send(Map.of("type", "text", "content",
+                                    "抱歉，没有找到 " + keyword + " 相关的地点～"));
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                            return;
+                        }
+                    }
+                    case "retry" -> {
+                        String feedback = intent.getStr("feedback", message);
+                        emitter.send(Map.of("type", "text", "content", "好的，根据你的反馈重新规划约会路线..."));
+                        emitter.send(Map.of("type", "step", "message", "重新规划中...",
+                                "status", "active", "index", 0, "total", 1));
+                        // 走完整 Agent 流程，传入反馈
+                        try {
+                            loveAgentService.processMessage(convId, "重新规划约会：" + feedback, null, null,
+                                    event -> safeSend(emitter, event));
+                            emitter.send(Map.of("type", "done"));
+                            emitter.complete();
+                            return;
+                        } catch (Exception e) {
+                            log.error("重新规划失败", e);
+                            emitter.send(Map.of("type", "error", "message", "重新规划失败: " + e.getMessage()));
+                            emitter.completeWithError(e);
+                            return;
+                        }
+                    }
+                    // regenerate: 直接用当前 POIs 重新生成地图+PDF
+                    default -> emitter.send(Map.of("type", "text", "content",
+                            "好的，根据当前计划重新生成路线和 PDF..."));
                 }
 
-                // 推送替代 POI 列表
-                Map<String, Object> poisEvent = new LinkedHashMap<>();
-                poisEvent.put("type", "pois");
-                poisEvent.put("categories", List.of(
-                        Map.of("label", category != null ? category : keyword, "key", "modified", "items", alternatives)
-                ));
-                poisEvent.put("selected", Map.of("modified", 0));
-                emitter.send(poisEvent);
+                // 为非 retry 操作重新生成地图+PDF
+                if (!"retry".equals(action) && updatedPois.size() >= 2) {
+                    DatePlanTools.RegenerateResult result = datePlanTools.regenerate(
+                            updatedPois, location, "", "");
+                    if (result.getErrorMessage() == null) {
+                        Map<String, Object> mapEvent = new LinkedHashMap<>();
+                        mapEvent.put("type", "map");
+                        mapEvent.put("pois", result.getSelectedPois());
+                        mapEvent.put("location", location);
+                        if (result.routeInfo != null) mapEvent.put("routeInfo", result.routeInfo);
+                        emitter.send(mapEvent);
 
-                emitter.send(Map.of("type", "text", "content",
-                        "找到了 " + alternatives.size() + " 个" + keyword + "！请选择喜欢的，然后点击「确认修改」重新生成路线～"));
+                        if (result.pdfUrl != null) {
+                            emitter.send(Map.of("type", "pdf", "url", result.getPdfUrl()));
+                        } else {
+                            emitter.send(Map.of("type", "text", "content", "路线已更新，但 PDF 生成遇到问题～"));
+                        }
+
+                        // 保存到数据库
+                        if (convId != null && result.getSelectedPois() != null) {
+                            Conversation conv = getOrCreateConversation(convId);
+                            List<Map<String, Object>> events = new ArrayList<>();
+                            Map<String, Object> me = new LinkedHashMap<>();
+                            me.put("type", "map");
+                            me.put("pois", result.getSelectedPois());
+                            me.put("location", location);
+                            if (result.routeInfo != null) me.put("routeInfo", result.routeInfo);
+                            events.add(me);
+                            if (result.pdfUrl != null) events.add(Map.of("type", "pdf", "url", result.getPdfUrl()));
+                            saveStructuredMessage(conv, events);
+                        }
+                    }
+                }
 
                 emitter.send(Map.of("type", "done"));
                 emitter.complete();
@@ -400,6 +521,10 @@ public class ChatController {
         });
 
         return emitter;
+    }
+
+    private void safeSend(SseEmitter emitter, Map<String, Object> event) {
+        try { emitter.send(event); } catch (IOException e) { /* ignore */ }
     }
 
     private String formatAnswersForSave(Map<String, Object> answers) {

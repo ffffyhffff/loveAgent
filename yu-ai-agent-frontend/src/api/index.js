@@ -95,12 +95,12 @@ export const regeneratePlan = (data) => {
 /**
  * AI 对话式修改约会计划（SSE 流）
  */
-export const modifyPlanStream = (message, location) => {
+export const modifyPlanStream = (message, location, currentPois, convId) => {
   const controller = new AbortController()
   const promise = fetch(`${API_BASE_URL}/chat/modify-stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, location }),
+    body: JSON.stringify({ message, location, currentPois, convId }),
     signal: controller.signal,
   })
   return { promise, abort: () => controller.abort() }

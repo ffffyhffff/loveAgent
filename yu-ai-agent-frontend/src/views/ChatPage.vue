@@ -397,7 +397,7 @@ const send = async () => {
   chatMessages.value.push({ content: msg, isUser: true })
 
   // Agent 面板已激活 → 后续消息走修改流程
-  if (mode.value === 'agent' && modifyLocation.value) {
+  if (mode.value === 'agent') {
     await handleModifyStream(msg)
     return
   }
@@ -418,6 +418,7 @@ const send = async () => {
 // ========== Agent 模式下的自然语言修改 ==========
 const handleModifyStream = async (msg) => {
   connecting.value = true
+  const currentPois = [...resultSelectedPois.value]
   // 重置 Agent 状态准备接收新结果
   planSteps.value = []
   toolCalls.value = []
@@ -431,7 +432,7 @@ const handleModifyStream = async (msg) => {
   chatMessages.value.push({ content: '', isUser: false })
 
   try {
-    const { promise } = modifyPlanStream(msg, modifyLocation.value)
+    const { promise } = modifyPlanStream(msg, modifyLocation.value, currentPois, activeId.value)
     const response = await promise
     if (!response.ok) {
       chatMessages.value[aiIndex].content = '修改请求失败'
@@ -654,7 +655,7 @@ const handleAiModify = async () => {
   const aiIndex = chatMessages.value.length
   chatMessages.value.push({ content: '', isUser: false })
   try {
-    const { promise } = modifyPlanStream(msg, modifyLocation.value)
+    const { promise } = modifyPlanStream(msg, modifyLocation.value, resultSelectedPois.value, activeId.value)
     const response = await promise
     if (!response.ok) {
       chatMessages.value[aiIndex].content = '修改请求失败'
