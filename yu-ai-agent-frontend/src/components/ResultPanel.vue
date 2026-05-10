@@ -34,7 +34,7 @@
     </div>
 
     <div class="rp-body">
-      <!-- ====== 计划 Tab ====== -->
+      <!-- ====== 计划 ====== -->
       <div v-show="activeTab === 'plan'" class="rp-tc">
         <div v-if="steps.length" class="plan-wrap">
           <div v-for="(s, i) in steps" :key="i" class="plan-row" :class="s.status">
@@ -54,11 +54,10 @@
         <div v-else class="rp-empty">等待执行计划...</div>
       </div>
 
-      <!-- ====== 工具 Tab ====== -->
+      <!-- ====== 工具调用 ====== -->
       <div v-show="activeTab === 'tools'" class="rp-tc">
         <div v-if="toolCalls.length" class="tc-list">
-          <div v-for="(tc, i) in toolCalls" :key="i" class="tc-card">
-            <!-- 工具调用头部 -->
+          <div v-for="(tc, i) in toolCalls" :key="i" class="tc-card glass-card">
             <div class="tc-head">
               <div class="tc-head-left">
                 <div class="tc-icon" :class="tc.status">
@@ -70,10 +69,9 @@
                   <div class="tc-tool-input">{{ tc.toolInput }}</div>
                 </div>
               </div>
-              <span class="tc-time" v-if="tc.startTime && tc.endTime">{{ ((tc.endTime - tc.startTime) / 1000).toFixed(1) }}s</span>
+              <span class="tc-time" v-if="tc.startTime && tc.endTime && tc.endTime > tc.startTime">{{ ((tc.endTime - tc.startTime) / 1000).toFixed(1) }}s</span>
               <span class="tc-time" v-else-if="tc.status === 'running'">执行中...</span>
             </div>
-            <!-- 工具调用结果 -->
             <div v-if="tc.results.length" class="tc-results">
               <div v-for="(r, j) in tc.results" :key="j" class="tc-poi">
                 <img v-if="r.images && r.images.length" :src="r.images[0]" class="tc-poi-img" loading="lazy" />
@@ -94,20 +92,17 @@
         <div v-else class="rp-empty">暂无工具调用记录</div>
       </div>
 
-      <!-- ====== 地图 Tab ====== -->
+      <!-- ====== 地图 ====== -->
       <div v-show="activeTab === 'map'" class="rp-tc">
         <RouteMap v-if="selectedPois.length >= 2" :pois="selectedPois" :routeInfo="routeInfo" />
         <div v-else class="rp-empty">等待路线规划...</div>
       </div>
 
-      <!-- ====== PDF Tab ====== -->
+      <!-- ====== PDF ====== -->
       <div v-show="activeTab === 'pdf'" class="rp-tc">
         <div v-if="pdfUrl">
           <iframe :src="pdfFull(pdfUrl)" class="pdf-frame" frameborder="0" title="PDF"></iframe>
-          <a :href="pdfFull(pdfUrl)" class="pdf-dl" download>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            下载 PDF
-          </a>
+          <a :href="pdfFull(pdfUrl)" class="pdf-dl glass-btn primary" download>下载 PDF</a>
         </div>
         <div v-else class="rp-empty">PDF 尚未生成</div>
       </div>
@@ -154,80 +149,115 @@ const pdfFull = (p) => p ? API.replace('/api', '') + p : '#'
 
 <style scoped>
 /* ====== PANEL ====== */
-.rp { display:flex; flex-direction:column; min-width:340px; background:rgba(255,255,255,0.04); border-left:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+.rp {
+  display:flex; flex-direction:column; min-width:340px;
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255,255,255,0.35);
+}
 
 /* ====== HEADER ====== */
-.rp-hd { display:flex; align-items:center; padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.08); gap:10px; }
-.rp-title { font-size:0.92rem; font-weight:700; color:#f0f0f0; flex:1; }
+.rp-hd { display:flex; align-items:center; padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.2); gap:10px; }
+.rp-title { font-size:0.92rem; font-weight:700; color: var(--color-text); flex:1; }
 .rp-hd-right { display:flex; align-items:center; gap:8px; }
-.rp-badge { font-size:0.6rem; padding:3px 10px; border-radius:10px; background:rgba(255,107,157,0.15); color:#ff6b9d; animation:pulse 1.8s infinite; }
+.rp-badge {
+  font-size:0.62rem; padding:3px 10px; border-radius:10px;
+  background: rgba(233,30,99,0.15); color: var(--color-accent);
+  animation:pulse 1.8s infinite;
+}
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-.rp-close { background:none; border:none; color:rgba(255,255,255,0.35); cursor:pointer; padding:6px; border-radius:8px; transition:all 0.2s; }
-.rp-close:hover { color:#ff6b9d; background:rgba(255,107,157,0.08); }
+.rp-close {
+  background:none; border:none; color: var(--color-text-dim); cursor:pointer;
+  padding:6px; border-radius:8px; transition:all 0.2s;
+}
+.rp-close:hover { color: var(--color-accent); background: rgba(233,30,99,0.08); }
 
 /* ====== TABS ====== */
-.rp-tabs { display:flex; gap:2px; padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.06); }
-.rp-tab { display:flex; align-items:center; gap:5px; padding:7px 14px; border-radius:8px; font-size:0.78rem; background:transparent; border:none; color:rgba(255,255,255,0.40); cursor:pointer; transition:all 0.2s; font-weight:500; }
-.rp-tab:hover { color:rgba(255,255,255,0.65); background:rgba(255,255,255,0.03); }
-.rp-tab.on { background:rgba(255,107,157,0.10); color:#ff6b9d; }
+.rp-tabs { display:flex; gap:2px; padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.15); }
+.rp-tab {
+  display:flex; align-items:center; gap:5px; padding:7px 14px;
+  border-radius:8px; font-size:0.78rem; background:transparent; border:none;
+  color: var(--color-text-dim); cursor:pointer; transition:all 0.2s; font-weight:500;
+}
+.rp-tab:hover { color: var(--color-text-secondary); background: rgba(255,255,255,0.15); }
+.rp-tab.on { background: var(--color-accent-dim); color: var(--color-accent); }
 .rp-tab-svg { opacity:0.45; flex-shrink:0; }
 .rp-tab.on .rp-tab-svg { opacity:1; }
-.rp-tab:hover .rp-tab-svg { opacity:0.7; }
 
 /* ====== BODY ====== */
 .rp-body { flex:1; overflow-y:auto; padding:16px; }
 .rp-tc { min-height:100%; }
-.rp-empty { color:rgba(255,255,255,0.20); font-size:0.82rem; text-align:center; padding:60px 0; }
+.rp-empty { color: var(--color-text-dim); font-size:0.82rem; text-align:center; padding:60px 0; }
 
-/* ====== 计划 Tab ====== */
+/* ====== 计划 ====== */
 .plan-wrap { padding-left:4px; }
 .plan-row { display:flex; gap:12px; position:relative; padding-bottom:22px; }
 .plan-row:last-child { padding-bottom:0; }
 .plan-dot-col { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
 .plan-dot { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
-.plan-dot.done { background:rgba(76,204,163,0.12); }
-.plan-dot.active { background:rgba(255,107,157,0.12); }
-.plan-dot.pending { border:2px solid rgba(255,255,255,0.08); }
-.plan-dot-ring { width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,107,157,0.2); border-top-color:#ff6b9d; animation:spin 0.8s linear infinite; }
+.plan-dot.done { background: rgba(76,204,163,0.15); }
+.plan-dot.active { background: rgba(233,30,99,0.12); }
+.plan-dot.pending { border:2px solid var(--glass-border); }
+.plan-dot-ring {
+  width:12px; height:12px; border-radius:50%;
+  border:2px solid rgba(233,30,99,0.15); border-top-color: var(--color-accent);
+  animation:spin 0.8s linear infinite;
+}
 @keyframes spin { to { transform:rotate(360deg) } }
-.plan-line { width:2px; flex:1; min-height:16px; margin:4px 0; background:rgba(255,255,255,0.04); }
-.plan-line.done { background:rgba(76,204,163,0.25); }
-.plan-line.active { background:rgba(255,107,157,0.2); }
+.plan-line { width:2px; flex:1; min-height:16px; margin:4px 0; background: rgba(255,255,255,0.15); }
+.plan-line.done { background: rgba(76,204,163,0.3); }
+.plan-line.active { background: rgba(233,30,99,0.25); }
 .plan-body { flex:1; display:flex; flex-direction:column; gap:3px; padding-top:2px; }
-.plan-label { font-size:0.84rem; font-weight:600; color:#dadada; line-height:1.4; }
-.plan-row.pending .plan-label { color:rgba(255,255,255,0.22); }
-.plan-row.done .plan-label { color:rgba(255,255,255,0.50); }
-.plan-tool { font-size:0.62rem; color:rgba(255,255,255,0.30); padding:1px 8px; border-radius:4px; background:rgba(255,255,255,0.03); width:fit-content; }
+.plan-label { font-size:0.84rem; font-weight:600; color: var(--color-text); line-height:1.4; }
+.plan-row.pending .plan-label { color: var(--color-text-dim); }
+.plan-row.done .plan-label { color: var(--color-text-secondary); }
+.plan-tool {
+  font-size:0.62rem; color: var(--color-text-dim); padding:1px 8px;
+  border-radius:4px; background: rgba(255,255,255,0.12); width:fit-content;
+}
 
-/* ====== 工具 Tab ====== */
+/* ====== 工具调用卡片 ====== */
 .tc-list { display:flex; flex-direction:column; gap:14px; }
-.tc-card { border-radius:14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); overflow:hidden; }
-.tc-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.tc-card { border-radius:16px; overflow:hidden; padding:0; }
+.tc-head {
+  display:flex; align-items:center; gap:10px;
+  padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.1);
+}
 .tc-head-left { display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
-.tc-icon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.tc-icon.done { background:rgba(76,204,163,0.12); }
-.tc-icon.running { background:rgba(255,107,157,0.12); }
-.tc-spin { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,107,157,0.15); border-top-color:#ff6b9d; animation:spin 0.8s linear infinite; }
-.tc-tool-name { font-size:0.82rem; font-weight:700; color:#eaeaea; }
-.tc-tool-input { font-size:0.68rem; color:rgba(255,255,255,0.38); margin-top:2px; }
-.tc-time { font-size:0.65rem; color:rgba(255,255,255,0.30); flex-shrink:0; }
+.tc-icon {
+  width:32px; height:32px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.tc-icon.done { background: rgba(76,204,163,0.12); }
+.tc-icon.running { background: rgba(233,30,99,0.12); }
+.tc-spin {
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid rgba(233,30,99,0.15); border-top-color: var(--color-accent);
+  animation:spin 0.8s linear infinite;
+}
+.tc-tool-name { font-size:0.82rem; font-weight:700; color: var(--color-text); }
+.tc-tool-input { font-size:0.68rem; color: var(--color-text-secondary); margin-top:2px; }
+.tc-time { font-size:0.65rem; color: var(--color-text-dim); flex-shrink:0; }
 .tc-results { padding:10px 16px 14px; display:flex; flex-direction:column; gap:8px; }
-.tc-wait { padding:14px 16px; font-size:0.72rem; color:rgba(255,255,255,0.22); text-align:center; }
-.tc-poi { display:flex; gap:10px; padding:10px; border-radius:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); cursor:pointer; transition:all 0.18s; }
-.tc-poi:hover { background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.08); }
-.tc-poi-img { width:56px; height:56px; object-fit:cover; border-radius:8px; flex-shrink:0; border:1px solid rgba(255,255,255,0.05); }
+.tc-wait { padding:14px 16px; font-size:0.72rem; color: var(--color-text-dim); text-align:center; }
+.tc-poi {
+  display:flex; gap:10px; padding:10px; border-radius:10px;
+  background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1);
+  cursor:pointer; transition:all 0.18s;
+}
+.tc-poi:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); }
+.tc-poi-img { width:56px; height:56px; object-fit:cover; border-radius:8px; flex-shrink:0; border:1px solid rgba(255,255,255,0.1); }
 .tc-poi-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
-.tc-poi-name { font-size:0.80rem; font-weight:600; color:#eaeaea; }
-.tc-poi-addr { font-size:0.68rem; color:rgba(255,255,255,0.40); line-height:1.35; }
+.tc-poi-name { font-size:0.80rem; font-weight:600; color: var(--color-text); }
+.tc-poi-addr { font-size:0.68rem; color: var(--color-text-secondary); line-height:1.35; }
 .tc-poi-meta { display:flex; gap:8px; margin-top:2px; }
-.m-rating { font-size:0.66rem; color:#f59e0b; font-weight:500; }
-.m-dist { font-size:0.66rem; color:rgba(255,255,255,0.35); }
-.m-cost { font-size:0.66rem; color:#4ecca3; }
+.m-rating { font-size:0.66rem; color: #d97706; font-weight:500; }
+.m-dist { font-size:0.66rem; color: var(--color-text-dim); }
+.m-cost { font-size:0.66rem; color: var(--color-success); }
 
-/* ====== PDF Tab ====== */
-.pdf-frame { width:100%; min-height:520px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:#f5f5f5; }
-.pdf-dl { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:10px; padding:10px; border-radius:10px; font-size:0.80rem; font-weight:600; background:rgba(255,107,157,0.08); border:1px solid rgba(255,107,157,0.15); color:#ff6b9d; text-decoration:none; cursor:pointer; transition:all 0.2s; }
-.pdf-dl:hover { background:rgba(255,107,157,0.15); }
+/* ====== PDF ====== */
+.pdf-frame { width:100%; min-height:520px; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:#fff; }
+.pdf-dl { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:10px; padding:10px 20px; }
 
-@media (prefers-reduced-motion:reduce) { .tc-spin,.plan-dot-ring { animation:none; } .rp-badge { animation:none; } }
+@media (prefers-reduced-motion:reduce) { .tc-spin,.plan-dot-ring{animation:none} .rp-badge{animation:none} }
 </style>
