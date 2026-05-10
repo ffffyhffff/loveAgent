@@ -166,7 +166,7 @@ const applyLoveEvent = (parsed, target, state) => {
     }
     // step 完成时标记工具调用结束，记录真实耗时
     if (parsed.status === 'done') {
-      const runningTc = toolCalls.value.find(tc => tc.stepIndex === idx && tc.status === 'running')
+      const runningTc = toolCalls.value.find(tc => tc.stepIndex === idx && (tc.status === 'running' || tc.status === 'results_ready'))
       if (runningTc) {
         runningTc.status = 'done'
         runningTc.duration = parsed.duration || null
@@ -182,25 +182,20 @@ const applyLoveEvent = (parsed, target, state) => {
     }
   }
 
-  // section → resultPois + toolCalls
+  // section → resultPois + toolCalls (只加结果，不改状态)
   if (parsed.type === 'section' && parsed.items) {
     resultPois.value = [...resultPois.value, ...parsed.items]
     resultTab.value = 'tools'
-    // 找到对应的运行中工具调用并关联结果
     const activeTc = toolCalls.value.find(tc => tc.status === 'running')
     if (activeTc) {
       activeTc.results = [...activeTc.results, ...parsed.items]
-      activeTc.status = 'done'
-      activeTc.endTime = Date.now()
+      // 不设 done，留给 step done 事件带 duration 来完成
     } else {
-      // 没有运行中的工具调用，创建一个
       toolCalls.value.push({
         toolName: parsed.title || 'POI搜索',
         toolInput: parsed.title || '',
-        status: 'done',
+        status: 'results_ready',
         results: [...parsed.items],
-        startTime: Date.now(),
-        endTime: Date.now(),
       })
     }
     if (state._execMsg) {

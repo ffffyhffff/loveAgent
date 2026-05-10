@@ -146,11 +146,10 @@ public class ExecutorNode implements NodeAction {
         }
         String lower = step.toLowerCase();
         return step.contains("详情")
-                || step.contains("璇︽儏")
                 || step.contains("总结")
-                || step.contains("鎬荤粨")
                 || step.contains("生成")
-                || step.contains("鐢熸垚")
+                || step.contains("网页")
+                || step.contains("抓取")
                 || lower.contains("pdf");
     }
 
@@ -173,12 +172,25 @@ public class ExecutorNode implements NodeAction {
                 detail = toolRegistry.amapMcpTools().mapsSearchDetail(JSONUtil.createObj().set("id", id).toString());
                 enrichPoiFromDetail(poi, detail);
             }
+            // 网页补充抓取：从百度搜索 POI 名称获取额外信息
+            String poiName = String.valueOf(poi.getOrDefault("name", ""));
+            if (!poiName.isBlank()) {
+                try {
+                    String scraped = toolRegistry.webScrapingTool().scrapeWebPage(
+                        "https://www.baidu.com/s?wd=" + java.net.URLEncoder.encode(poiName, "UTF-8"));
+                    if (scraped != null && !scraped.isBlank() && scraped.length() > 50) {
+                        poi.put("webInfo", scraped.substring(0, Math.min(500, scraped.length())));
+                    }
+                } catch (Exception e) {
+                    log.warn("网页抓取跳过 {}: {}", poiName, e.getMessage());
+                }
+            }
             addSelectedPoi(poi);
             emitPlaceDetail(entry.getKey(), poi, detail);
             count++;
         }
 
-        return "已从候选结果中确定 " + count + " 个最终行程点，并统一补充详情和图片";
+        return "已从候选结果中确定 " + count + " 个最终行程点，并统一补充详情和图片（含网页抓取）";
     }
 
     private List<Map.Entry<String, Map<String, Object>>> selectItineraryCandidates() {
