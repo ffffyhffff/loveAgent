@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <Teleport to="body">
     <div class="dialog-overlay" @click.self="$emit('close')">
       <div class="dialog">
@@ -226,7 +226,7 @@ const submit = () => {
 }
 .form-input::placeholder { color: rgba(255,255,255,0.35); }
 
-/* 选项组 */
+/* 选项�?*/
 .option-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .option-btn {
   display: flex; align-items: center; gap: 6px;
@@ -302,3 +302,4 @@ const submit = () => {
   transform: none; box-shadow: none;
 }
 </style>
+

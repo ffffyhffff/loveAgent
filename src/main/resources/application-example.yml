@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: ai-chat
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aichat
+    username: postgres
+    password: ${DB_PASSWORD:your_db_password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+# AI 配置
+ai:
+  dashscope:
+    api-key: ${DASHSCOPE_API_KEY:your_dashscope_api_key}
+    model: qwen-plus
+
+logging:
+  level:
+    com.aichat: DEBUG
+
+# 高德地图
+amap:
+  api-key: ${AMAP_API_KEY:your_amap_web_service_key}
+  web-key: ${AMAP_WEB_KEY:your_amap_js_api_key}

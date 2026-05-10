@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="right-panel" :class="{ visible }">
     <div class="panel-header">
       <h3>约会规划</h3>
@@ -131,7 +131,7 @@ const getFullPdfUrl = (path) => {
 .pdf-desc { font-size: 0.75rem; color: var(--color-text-secondary); }
 .pdf-btn { font-size: 13px; padding: 8px 16px; text-decoration: none; flex-shrink: 0; }
 
-/* 响应式 */
+/* 响应�?*/
 @media (max-width: 768px) {
   .right-panel {
     position: fixed; bottom: -100%; left: 0; right: 0;
@@ -143,3 +143,4 @@ const getFullPdfUrl = (path) => {
   .right-panel.visible { bottom: 0; }
 }
 </style>
+

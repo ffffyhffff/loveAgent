@@ -3,7 +3,6 @@ package com.aichat.app.controller;
 import com.aichat.app.model.*;
 import com.aichat.app.service.AgentChatService;
 import com.aichat.app.service.ChatService;
-import com.aichat.app.service.DatePlanService;
 import com.aichat.app.service.LoveAgentService;
 import com.aichat.app.service.RagService;
 import com.aichat.app.tools.DatePlanTools;
@@ -31,7 +30,6 @@ public class ChatController {
     private final ChatService chatService;
     private final AgentChatService agentChatService;
     private final RagService ragService;
-    private final DatePlanService datePlanService;
     private final LoveAgentService loveAgentService;
     private final DatePlanTools datePlanTools;
     private final ConversationRepository conversationRepository;
@@ -144,137 +142,6 @@ public class ChatController {
                     }
                 }
         );
-
-        return emitter;
-    }
-
-    // ==================== 约会规划（三步交互） ====================
-
-    /**
-     * Step 1: 分析用户意图，提取信息
-     * 信息不全 → 返回 needPreferences=true，前端弹窗
-     * 信息完整 → 直接返回计划
-     */
-    @PostMapping("/date-plan/analyze")
-    public Map<String, Object> datePlanAnalyze(@RequestBody Map<String, String> request) {
-        String message = request.get("message");
-        log.info("Step 1: 分析意图 - {}", message);
-
-        DatePlanService.PlanResult result = datePlanService.extractIntent(message);
-        return planResultToMap(result);
-    }
-
-    /**
-     * Step 1b: 用户补充偏好后，生成计划
-     */
-    @PostMapping("/date-plan/plan")
-    public Map<String, Object> datePlanPlan(@RequestBody Map<String, String> request) {
-        String location = request.getOrDefault("location", "");
-        String budget = request.getOrDefault("budget", "");
-        String style = request.getOrDefault("style", "");
-        String duration = request.getOrDefault("duration", "");
-        String keywords = request.getOrDefault("keywords", "");
-        log.info("Step 1b: 生成计划 - location={}", location);
-
-        DatePlanService.PlanResult info = new DatePlanService.PlanResult();
-        info.setLocation(location);
-        info.setBudget(budget);
-        info.setStyle(style);
-        info.setDuration(duration);
-        info.setKeywords(keywords);
-
-        DatePlanService.PlanResult result = datePlanService.generatePlan(info);
-        return planResultToMap(result);
-    }
-
-    private Map<String, Object> planResultToMap(DatePlanService.PlanResult result) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("type", result.getType());
-
-        if ("chat".equals(result.getType())) {
-            response.put("content", result.getChatResponse());
-        } else if ("plan".equals(result.getType())) {
-            response.put("planDescription", result.getPlanDescription());
-            response.put("location", result.getLocation());
-            response.put("budget", result.getBudget());
-            response.put("style", result.getStyle());
-            response.put("duration", result.getDuration());
-            response.put("keywords", result.getKeywords());
-            response.put("occasion", result.getOccasion());
-            response.put("activity", result.getActivity());
-            response.put("needPreferences", result.isNeedPreferences());
-        } else {
-            response.put("message", result.getErrorMessage());
-        }
-
-        return response;
-    }
-
-    /**
-     * Phase 2: 确认后执行约会规划
-     * 搜索 POI → 选点 → 路线 → PDF，通过 SSE 逐步推送结果
-     */
-    @GetMapping(value = "/date-plan/execute", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter datePlanExecute(
-            @RequestParam String location,
-            @RequestParam String budget,
-            @RequestParam String style,
-            @RequestParam(required = false, defaultValue = "") String occasion,
-            @RequestParam(required = false, defaultValue = "") String activity,
-            @RequestParam String convId) {
-
-        SseEmitter emitter = new SseEmitter(300000L);
-
-        CompletableFuture.runAsync(() -> {
-            try {
-                // Step 1: 搜索 POI
-                emitter.send(Map.of("type", "step", "message", "正在搜索 " + location + " 附近的地点..."));
-
-                DatePlanService.ExecuteResult result = datePlanService.executeApproved(location, budget, style, occasion, activity);
-
-                if (result.getErrorMessage() != null) {
-                    emitter.send(Map.of("type", "error", "message", result.getErrorMessage()));
-                    emitter.complete();
-                    return;
-                }
-
-                // 推送 POI 列表
-                if (result.getPois() != null && !result.getPois().isEmpty()) {
-                    emitter.send(Map.of("type", "pois", "items", result.getPois()));
-                }
-
-                // 推送选中的 POI + 地图数据
-                if (result.getSelectedPois() != null && result.getSelectedPois().size() >= 2) {
-                    Map<String, Object> mapEvent = new HashMap<>();
-                    mapEvent.put("type", "map");
-                    mapEvent.put("pois", result.getSelectedPois());
-                    if (result.getRouteInfo() != null) {
-                        mapEvent.put("routeInfo", result.getRouteInfo());
-                    }
-                    emitter.send(mapEvent);
-                }
-
-                // 推送 PDF 下载链接
-                if (result.getPdfUrl() != null) {
-                    emitter.send(Map.of("type", "pdf", "url", result.getPdfUrl()));
-                }
-
-                // 保存对话
-                Conversation conv = getOrCreateConversation(convId);
-                String summary = buildPlanSummary(location, budget, style, result);
-                saveMessage(conv, false, summary);
-
-                emitter.send(Map.of("type", "done"));
-                emitter.complete();
-
-            } catch (Exception e) {
-                log.error("Phase 2 执行失败", e);
-                try {
-                    emitter.send(Map.of("type", "error", "message", "执行出错: " + e.getMessage()));
-                } catch (IOException ignored) {}
-                emitter.completeWithError(e);
-            }
-        });
 
         return emitter;
     }
@@ -401,19 +268,19 @@ public class ChatController {
                 }
 
                 // 推送更新后的地图
-                if (result.getSelectedPois() != null && result.getSelectedPois().size() >= 2) {
+                if (result.selectedPois != null && result.selectedPois.size() >= 2) {
                     Map<String, Object> mapEvent = new LinkedHashMap<>();
                     mapEvent.put("type", "map");
                     mapEvent.put("pois", result.getSelectedPois());
                     mapEvent.put("location", location);
                     mapEvent.put("budget", budget);
                     mapEvent.put("style", style);
-                    if (result.getRouteInfo() != null) mapEvent.put("routeInfo", result.getRouteInfo());
+                    if (result.routeInfo != null) mapEvent.put("routeInfo", result.routeInfo);
                     emitter.send(mapEvent);
                 }
 
                 // 推送新 PDF
-                if (result.getPdfUrl() != null) {
+                if (result.pdfUrl != null) {
                     emitter.send(Map.of("type", "pdf", "url", result.getPdfUrl()));
                 }
 
@@ -429,10 +296,10 @@ public class ChatController {
                         mapEvent.put("type", "map");
                         mapEvent.put("pois", result.getSelectedPois());
                         mapEvent.put("location", location);
-                        if (result.getRouteInfo() != null) mapEvent.put("routeInfo", result.getRouteInfo());
+                        if (result.routeInfo != null) mapEvent.put("routeInfo", result.routeInfo);
                         events.add(mapEvent);
                     }
-                    if (result.getPdfUrl() != null) {
+                    if (result.pdfUrl != null) {
                         events.add(Map.of("type", "pdf", "url", result.getPdfUrl()));
                     }
                     if (!events.isEmpty()) saveStructuredMessage(conv, events);
@@ -605,24 +472,6 @@ public class ChatController {
             log.warn("RAG 查询失败", e);
         }
         return message;
-    }
-
-    private String buildPlanSummary(String location, String budget, String style,
-                                     DatePlanService.ExecuteResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("约会规划完成\n");
-        sb.append("📍 ").append(location).append("\n");
-        sb.append("💰 ").append(budget).append("\n");
-        sb.append("✨ ").append(style).append("\n");
-        if (result.getSelectedPois() != null) {
-            for (Map<String, Object> poi : result.getSelectedPois()) {
-                sb.append("• ").append(poi.get("name")).append("\n");
-            }
-        }
-        if (result.getPdfUrl() != null) {
-            sb.append("📄 PDF: ").append(result.getPdfUrl());
-        }
-        return sb.toString();
     }
 
     /**

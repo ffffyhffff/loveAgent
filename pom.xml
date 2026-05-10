@@ -115,6 +115,13 @@
             <version>1.5.14</version>
         </dependency>
 
+        <!-- MCP Java SDK for stdio MCP servers (AMap official MCP server) -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+            <version>0.10.0</version>
+        </dependency>
+
         <!-- iText PDF -->
         <dependency>
             <groupId>com.itextpdf</groupId>

@@ -97,7 +97,8 @@ public class McpMapTools {
             AmapTools.PoiResult poi = results.get(i);
             if (i > 0) sb.append(",");
             sb.append(String.format(
-                    "{\"name\":\"%s\",\"address\":\"%s\",\"distance\":\"%s\",\"longitude\":%.6f,\"latitude\":%.6f}",
+                    "{\"id\":\"%s\",\"name\":\"%s\",\"address\":\"%s\",\"distance\":\"%s\",\"longitude\":%.6f,\"latitude\":%.6f}",
+                    poi.getId() != null ? poi.getId() : "",
                     escapeJson(poi.getName()),
                     escapeJson(poi.getAddress()),
                     poi.getDistance() != null ? poi.getDistance() : "",
@@ -106,6 +107,38 @@ public class McpMapTools {
             ));
         }
         sb.append("]");
+        return sb.toString();
+    }
+
+    @Tool("查询地点详情（评分、人均消费、照片、营业时间）。传入地点的 id（从搜索结果中获取）。")
+    public String placeDetail(
+            @dev.langchain4j.agent.tool.P("地点的 id（高德 POI id）") String poiId
+    ) {
+        log.info("[MCP Tool] placeDetail: id={}", poiId);
+        AmapTools.PoiDetail detail = amapTools.placeDetail(poiId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("名称：").append(detail.getName()).append("\n");
+        if (detail.getRating() != null && !detail.getRating().isEmpty()) {
+            sb.append("评分：").append(detail.getRating()).append("分\n");
+        }
+        if (detail.getCost() != null && !detail.getCost().isEmpty()) {
+            sb.append("人均：").append(detail.getCost()).append("元\n");
+        }
+        if (detail.getBusinessHours() != null && !detail.getBusinessHours().isEmpty()) {
+            sb.append("营业时间：").append(detail.getBusinessHours()).append("\n");
+        }
+        if (!detail.getReviews().isEmpty()) {
+            sb.append("评价：\n");
+            for (String review : detail.getReviews()) {
+                sb.append("  - ").append(review).append("\n");
+            }
+        }
+        if (!detail.getPhotos().isEmpty()) {
+            sb.append("照片：\n");
+            for (String photo : detail.getPhotos()) {
+                sb.append("  ").append(photo).append("\n");
+            }
+        }
         return sb.toString();
     }
 

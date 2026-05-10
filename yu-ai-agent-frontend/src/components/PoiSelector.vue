@@ -47,7 +47,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['confirm', 'close'])
 
-// 初始化选择（每个类别默认选第一个）
 const selections = reactive({ ...props.selected })
 
 const canConfirm = computed(() => {
@@ -59,7 +58,6 @@ function selectPoi(catKey, index) {
 }
 
 function confirm() {
-  // 收集所有选中的 POI
   const selectedPois = []
   for (const cat of props.categories) {
     const idx = selections[cat.key]
@@ -74,16 +72,16 @@ function confirm() {
   emit('confirm', selectedPois)
 }
 
-function getCatIcon(label) {
+function getCatIcon(label = '') {
   if (label.includes('茶') || label.includes('咖啡') || label.includes('休闲')) return '☕'
-  if (label.includes('景点') || label.includes('公园') || label.includes('观景')) return '🌸'
-  if (label.includes('晚餐') || label.includes('餐厅') || label.includes('火锅') || label.includes('美食')) return '🍽️'
+  if (label.includes('景点') || label.includes('公园') || label.includes('观景')) return '🌿'
+  if (label.includes('餐') || label.includes('火锅') || label.includes('美食')) return '🍽️'
   if (label.includes('甜品') || label.includes('甜蜜')) return '🍰'
   if (label.includes('花店') || label.includes('浪漫') || label.includes('惊喜')) return '💐'
   if (label.includes('书店') || label.includes('文艺') || label.includes('展览')) return '📚'
   if (label.includes('酒吧') || label.includes('微醺')) return '🍷'
   if (label.includes('运动') || label.includes('体验') || label.includes('密室')) return '🎯'
-  if (label.includes('小吃')) return '🍜'
+  if (label.includes('小吃')) return '🍡'
   return '📍'
 }
 </script>
@@ -152,9 +150,7 @@ function getCatIcon(label) {
   border: 1px solid transparent;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.poi-item:hover {
-  background: rgba(255,255,255,0.08);
-}
+.poi-item:hover { background: rgba(255,255,255,0.08); }
 .poi-item.selected {
   background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.1));
   border-color: rgba(139,92,246,0.4);

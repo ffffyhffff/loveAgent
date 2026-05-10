@@ -16,15 +16,18 @@ export async function consumeSSE(response, { onEvent, onDone, onError }) {
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
-      const parts = buffer.split('\n\n')
+      const parts = buffer.split(/\r?\n\r?\n/)
       buffer = parts.pop() // 保留不完整的 chunk
 
       for (const part of parts) {
         if (!part.trim()) continue
-        const dataLine = part.split('\n').find(l => l.startsWith('data:'))
-        if (!dataLine) continue
+        const dataLines = part
+          .split(/\r?\n/)
+          .filter(l => l.startsWith('data:'))
+          .map(l => l.slice(5).trim())
+        if (dataLines.length === 0) continue
 
-        const jsonStr = dataLine.slice(5).trim()
+        const jsonStr = dataLines.join('\n')
         try {
           const parsed = JSON.parse(jsonStr)
           if (parsed.type === 'done') {

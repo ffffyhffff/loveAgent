@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <div class="chat-page">
-    <!-- 侧边栏遮罩 -->
+    <!-- 渚ц竟鏍忛伄缃?-->
     <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false"></div>
 
-    <!-- 侧边栏 -->
+    <!-- 渚ц竟鏍?-->
     <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-header">
         <h3>聊天记录</h3>
@@ -117,26 +117,26 @@
             </div>
             <div class="map-bubble-wrapper">
               <RouteMap :pois="msg.pois" :routeInfo="msg.routeInfo" />
-              <!-- 修改按钮 -->
+              <!-- 淇敼鎸夐挳 -->
               <div class="map-actions">
                 <button class="action-btn" @click="findPoisMsgAndOpen(msg)">
-                  🔄 换目的地
+                  换目的地
                 </button>
                 <button class="action-btn" @click="showModifyInput = !showModifyInput">
-                  💬 让 AI 改
+                  让 AI 改
                 </button>
               </div>
               <!-- AI 修改输入框 -->
               <div v-if="showModifyInput" class="modify-input-bar">
-                <input v-model="modifyText" placeholder="如：换成茶馆、晚餐想吃火锅..."
+                <input v-model="modifyText" placeholder="例如：换成茶馆，晚餐想吃火锅..."
                        class="modify-input" @keyup.enter="handleAiModify" />
                 <button class="modify-send" @click="handleAiModify">发送</button>
               </div>
             </div>
           </template>
 
-          <!-- POI 列表（动态分类） -->
-          <template v-else-if="msg.type === 'pois'">
+          <!-- 执行面板（紧凑模式） -->
+          <template v-else-if="msg.type === 'execution' && msg.execution">
             <div class="avatar ai-avatar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="6" r="3" fill="currentColor"/>
@@ -146,31 +146,33 @@
                 <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
               </svg>
             </div>
-            <div class="poi-list-card glass-card">
-              <!-- 动态分类格式 -->
-              <template v-if="msg.categories">
-                <div v-for="cat in msg.categories" :key="cat.key" class="poi-cat-section">
-                  <div class="poi-cat-label">{{ getCatIcon(cat.label) }} {{ cat.label }}</div>
-                  <div class="poi-grid">
-                    <div v-for="(poi, j) in cat.items.slice(0, 3)" :key="j"
-                         class="poi-item" :class="{ 'poi-selected': msg.selected && msg.selected[cat.key] === j }">
-                      <span class="poi-name">{{ poi.name }}</span>
-                      <span class="poi-addr">{{ poi.address }}</span>
-                    </div>
-                  </div>
+            <div class="exec-panel glass-card">
+              <div class="exec-header">执行计划</div>
+              <!-- 步骤列表 -->
+              <div v-for="(step, i) in msg.execution.steps" :key="'s'+i" class="exec-step" :class="step.status">
+                <span v-if="step.status === 'done'" class="step-icon">✅</span>
+                <span v-else-if="step.status === 'active'" class="step-icon spinning">⏳</span>
+                <span v-else class="step-icon">○</span>
+                <span class="step-text">{{ step.text }}</span>
+              </div>
+              <!-- 搜索结果 -->
+              <div v-for="(result, i) in msg.execution.results" :key="'r'+i" class="exec-result">
+                <div class="exec-result-header">{{ result.icon }} {{ result.label }}</div>
+                <div v-for="(poi, j) in result.items" :key="j" class="exec-poi">
+                  <span class="poi-name">{{ poi.name }}</span>
+                  <span class="poi-meta">
+                    <span v-if="poi.distance">{{ poi.distance }}m</span>
+                  </span>
                 </div>
-              </template>
-              <!-- 扁平列表格式（兼容旧版） -->
-              <template v-else>
-                <h4>搜索到的地点</h4>
-                <div class="poi-grid">
-                  <div v-for="(poi, j) in msg.items" :key="j" class="poi-item">
-                    <span class="poi-name">{{ poi.name }}</span>
-                    <span class="poi-addr">{{ poi.address }}</span>
-                    <span class="poi-dist" v-if="poi.distance">{{ poi.distance }}m</span>
-                  </div>
+              </div>
+              <!-- 璇︽儏 -->
+              <div v-for="(detail, i) in msg.execution.details" :key="'d'+i" class="exec-detail">
+                <div class="detail-header">📷 {{ detail.name }}</div>
+                <div v-if="detail.text" class="detail-info">{{ detail.text }}</div>
+                <div v-if="detail.images && detail.images.length" class="detail-images">
+                  <img v-for="(img, k) in detail.images.slice(0,3)" :key="k" :src="img" class="detail-img" loading="lazy" />
                 </div>
-              </template>
+              </div>
             </div>
           </template>
 
@@ -191,8 +193,8 @@
             </div>
           </template>
 
-          <!-- 评价气泡 -->
-          <template v-else-if="msg.type === 'review'">
+          <!-- 地点详情 -->
+          <template v-else-if="msg.type === 'placeDetail'">
             <div class="avatar ai-avatar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="6" r="3" fill="currentColor"/>
@@ -202,9 +204,20 @@
                 <circle cx="7" cy="9.5" r="3" fill="currentColor" opacity="0.7"/>
               </svg>
             </div>
-            <div class="review-bubble">
-              <div class="review-place">💬 {{ msg.placeName }} 的评价</div>
-              <div class="review-text">{{ msg.text }}</div>
+            <div class="place-detail-card glass-card">
+              <div class="place-detail-media" v-if="msg.images && msg.images.length">
+                <img :src="msg.images[0]" :alt="msg.placeName" loading="lazy" />
+              </div>
+              <div class="place-detail-body">
+                <div class="place-detail-kicker">{{ msg.keyword || '行程点' }}</div>
+                <div class="place-detail-name">{{ msg.placeName }}</div>
+                <div class="place-detail-address">{{ msg.address }}</div>
+                <div class="place-detail-meta">
+                  <span v-if="msg.rating">评分 {{ msg.rating }}</span>
+                  <span v-if="msg.cost">人均 {{ msg.cost }}</span>
+                  <span v-if="msg.openTime">{{ msg.openTime }}</span>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -241,7 +254,7 @@
               </svg>
             </div>
             <div class="bubble ai form-placeholder-bubble">
-              <span class="form-waiting-text">📋 {{ msg.formSpec?.title || '请填写信息' }} — 弹窗已打开</span>
+              <span class="form-waiting-text">📋 {{ msg.formSpec?.title || '请填写信息' }} - 弹窗已打开</span>
             </div>
           </template>
         </div>
@@ -280,7 +293,7 @@
       </div>
     </div>
 
-    <!-- LoveAgent 动态表单弹窗 -->
+    <!-- LoveAgent 动态表单弹窗-->
     <DynamicForm
       v-if="activeFormSpec"
       :formSpec="activeFormSpec"
@@ -300,7 +313,7 @@
       </div>
     </Teleport>
 
-    <!-- 右侧执行面板 -->
+    <!-- 鍙充晶鎵ц闈㈡澘 -->
     <RightPanel
       :visible="rightPanelVisible"
       :steps="rightPanel.steps"
@@ -340,7 +353,7 @@ const conversations = ref([])
 const activeId = ref('')
 const messages = ref([])
 
-// LoveAgent 状态
+// LoveAgent state
 const activeFormSpec = ref(null)
 const rightPanelVisible = ref(false)
 const rightPanel = reactive({
@@ -352,12 +365,12 @@ const rightPanel = reactive({
 })
 let loveAbort = null
 
-// POI 修改状态
+// POI modification state
 const poiSelectorVisible = ref(false)
 const poiSelectorData = reactive({ categories: [], selected: {} })
 const modifyLocation = ref('') // 当前约会计划的地点（用于修改时搜索）
 
-// 打开 POI 选择器
+// Open POI selector
 const openPoiSelector = (msg) => {
   if (msg.categories) {
     poiSelectorData.categories = msg.categories
@@ -366,7 +379,7 @@ const openPoiSelector = (msg) => {
   poiSelectorVisible.value = true
 }
 
-// 确认修改 POI
+// 纭淇敼 POI
 const handlePoiConfirm = async (selectedPois) => {
   poiSelectorVisible.value = false
   if (selectedPois.length < 2) return
@@ -399,7 +412,7 @@ const handlePoiConfirm = async (selectedPois) => {
     await consumeSSE(response, {
       ...handler,
       onDone() { connecting.value = false; loveAbort = null },
-      onError(err) { messages.value[aiIndex].content = err.message || '出错'; connecting.value = false; loveAbort = null },
+      onError(err) { messages.value[aiIndex].content = err.message || '鍑洪敊'; connecting.value = false; loveAbort = null },
     })
   } catch (e) {
     if (e.name !== 'AbortError') {
@@ -409,7 +422,7 @@ const handlePoiConfirm = async (selectedPois) => {
   }
 }
 
-// AI 修改对话
+// AI 淇敼瀵硅瘽
 const showModifyInput = ref(false)
 const modifyText = ref('')
 
@@ -443,11 +456,11 @@ const handleAiModify = async () => {
     await consumeSSE(response, {
       ...handler,
       onDone() { connecting.value = false; loveAbort = null; getConversations().then(list => conversations.value = list) },
-      onError(err) { messages.value[aiIndex].content = err.message || '出错'; connecting.value = false; loveAbort = null },
+      onError(err) { messages.value[aiIndex].content = err.message || '鍑洪敊'; connecting.value = false; loveAbort = null },
     })
   } catch (e) {
     if (e.name !== 'AbortError') {
-      messages.value[aiIndex].content = '修改出错: ' + e.message
+      messages.value[aiIndex].content = '淇敼鍑洪敊: ' + e.message
     }
     connecting.value = false
   }
@@ -476,24 +489,12 @@ const loadMessages = async (convId) => {
     const loaded = []
     for (const m of data) {
       if (m.type === 'sse_events') {
-        // 结构化 SSE 事件：展开为多个消息
         try {
           const events = JSON.parse(m.content)
-          for (const evt of events) {
-            if (evt.type === 'pois') {
-              if (evt.categories) {
-                loaded.push({ content: '', isUser: false, type: 'pois', categories: evt.categories, selected: evt.selected || {} })
-              } else if (evt.items) {
-                loaded.push({ content: '', isUser: false, type: 'pois', items: evt.items })
-              }
-            } else if (evt.type === 'map') {
-              loaded.push({ content: '', isUser: false, type: 'map', pois: evt.pois || [], routeInfo: evt.routeInfo || null })
-              if (evt.location) modifyLocation.value = evt.location
-            } else if (evt.type === 'pdf' && evt.url) {
-              loaded.push({ content: '', isUser: false, type: 'pdf', url: evt.url })
-            }
-          }
-        } catch { /* JSON 解析失败，跳过 */ }
+          appendLoveEventsToMessages(events, loaded)
+        } catch {
+          // Ignore malformed saved event payloads.
+        }
       } else {
         loaded.push({
           content: m.content,
@@ -508,8 +509,146 @@ const loadMessages = async (convId) => {
   }
 }
 
-// 切换对话时清理待弹窗定时器
+// Cleanup callback for delayed form popup
 let pendingFormCleanup = null
+
+const createExecutionMessage = () => ({
+  content: '',
+  isUser: false,
+  type: 'execution',
+  execution: { steps: [], results: [], details: [] },
+})
+
+const syncRightPanelSteps = (steps) => {
+  rightPanel.steps = steps.map((step, index) => ({
+    label: step.text || step.label || `步骤 ${index + 1}`,
+    detail: step.detail || '',
+    status: step.status || 'pending',
+  }))
+}
+
+const applyLoveEvent = (parsed, target, state) => {
+  const getExecMsg = () => {
+    if (!state.execMsg) {
+      state.execMsg = createExecutionMessage()
+      target.push(state.execMsg)
+    }
+    return state.execMsg
+  }
+
+  if (parsed.type === 'text' && parsed.content) {
+    if (state.execMsg || rightPanel.pdfUrl || rightPanel.selectedPois.length) {
+      target.push({ content: parsed.content, isUser: false })
+    } else if (state.aiIndex != null && target[state.aiIndex]) {
+      target[state.aiIndex].content += parsed.content
+    } else {
+      target.push({ content: parsed.content, isUser: false })
+    }
+  }
+  if (parsed.type === 'plan' && parsed.steps) {
+    const msg = getExecMsg()
+    msg.execution.steps = parsed.steps.map((step, index) => ({
+      text: step.message || step.text || `步骤 ${index + 1}`,
+      status: step.status || 'pending',
+    }))
+  }
+  if (parsed.type === 'plan' && parsed.steps) {
+    syncRightPanelSteps(state.execMsg.execution.steps)
+  }
+  if (parsed.type === 'step') {
+    const msg = getExecMsg()
+    const steps = msg.execution.steps
+    if (Number.isInteger(parsed.index)) {
+      while (steps.length <= parsed.index) {
+        steps.push({ text: '', status: 'pending' })
+      }
+      steps[parsed.index] = {
+        text: parsed.status === 'done' ? (steps[parsed.index].text || parsed.message) : (parsed.message || steps[parsed.index].text),
+        status: parsed.status || steps[parsed.index].status || 'pending',
+      }
+      syncRightPanelSteps(steps)
+      return
+    }
+    if (parsed.status === 'pending') {
+      steps.push({ text: parsed.message, status: 'pending' })
+    } else if (parsed.status === 'active') {
+      for (let i = 0; i < steps.length; i++) {
+        if (steps[i].status === 'pending') { steps[i].status = 'active'; break }
+      }
+    } else if (parsed.status === 'done') {
+      for (let i = 0; i < steps.length; i++) {
+        if (steps[i].status === 'active') { steps[i].status = 'done'; break }
+      }
+    }
+    syncRightPanelSteps(steps)
+  }
+  if (parsed.type === 'section' && parsed.items) {
+    const msg = getExecMsg()
+    msg.execution.results.push({
+      icon: parsed.icon || getCatIcon(parsed.title),
+      label: parsed.title,
+      items: parsed.items.slice(0, 3),
+    })
+  }
+  if (parsed.type === 'review') {
+    const msg = getExecMsg()
+    msg.execution.details.push({
+      name: parsed.placeName || '',
+      text: parsed.content || '',
+      images: parsed.images || [],
+    })
+  }
+  if (parsed.type === 'placeDetail') {
+    const msg = getExecMsg()
+    msg.execution.details.push({
+      name: parsed.placeName || '',
+      text: [parsed.address, parsed.rating ? `评分 ${parsed.rating}` : '', parsed.cost ? `人均 ${parsed.cost}` : '']
+        .filter(Boolean)
+        .join(' 路 '),
+      images: parsed.images || [],
+    })
+    target.push({
+      content: '',
+      isUser: false,
+      type: 'placeDetail',
+      keyword: parsed.keyword,
+      placeName: parsed.placeName,
+      address: parsed.address,
+      rating: parsed.rating,
+      cost: parsed.cost,
+      openTime: parsed.openTime,
+      images: parsed.images || [],
+    })
+  }
+  if (parsed.type === 'pois' && parsed.categories) {
+    rightPanel.pois = parsed.categories.flatMap(c => c.items || [])
+    target.push({
+      content: '',
+      isUser: false,
+      type: 'pois',
+      categories: parsed.categories,
+      selected: parsed.selected || {},
+    })
+  }
+  if (parsed.type === 'map') {
+    rightPanel.selectedPois = parsed.pois || []
+    rightPanel.routeInfo = parsed.routeInfo || null
+    if (parsed.location) modifyLocation.value = parsed.location
+    target.push({ content: '', isUser: false, type: 'map', pois: parsed.pois || [], routeInfo: parsed.routeInfo || null })
+  }
+  if (parsed.type === 'pdf' && parsed.url) {
+    rightPanel.pdfUrl = parsed.url
+    target.push({ content: '', isUser: false, type: 'pdf', url: parsed.url })
+  }
+}
+
+const appendLoveEventsToMessages = (events, target, aiIndex = null) => {
+  const state = { execMsg: null, aiIndex }
+  for (const evt of events) {
+    applyLoveEvent(evt, target, state)
+  }
+  return state
+}
 
 const switchConversation = async (id) => {
   if (pendingFormCleanup) { pendingFormCleanup(); pendingFormCleanup = null }
@@ -552,6 +691,8 @@ const deleteConv = async (id) => {
 const scrollToBottom = () => { smoothScrollToBottom(messagesRef.value) }
 watch(() => messages.value.length, scrollToBottom)
 watch(() => messages.value.map(m => m.content).join(''), scrollToBottom)
+watch(() => JSON.stringify(rightPanel.steps), scrollToBottom)
+watch(() => messages.value.map(m => JSON.stringify(m.execution || {})).join(''), scrollToBottom)
 
 // 主发送逻辑
 const send = async () => {
@@ -613,14 +754,39 @@ const handleNormalChat = (msg) => {
   }
 }
 
-// ========== LoveAgent 公共 SSE 事件处理 ==========
+// ========== LoveAgent 公共 SSE 事件处理 ===================
 const createLoveEventHandler = (aiIndex) => {
   let formTimer = null
+  let execMsg = null
+  const realtimeState = { execMsg: null, aiIndex }
+
+  const getExecMsg = () => {
+    if (!execMsg) {
+      execMsg = { content: '', isUser: false, type: 'execution', execution: { steps: [], results: [], details: [] } }
+      messages.value.push(execMsg)
+    }
+    return execMsg
+  }
 
   const handler = {
   onEvent(parsed) {
+    if (parsed.type !== 'form') {
+      applyLoveEvent(parsed, messages.value, realtimeState)
+      return
+    }
     if (parsed.type === 'text' && parsed.content) {
-      messages.value[aiIndex].content += parsed.content
+      if (execMsg || rightPanel.pdfUrl || rightPanel.selectedPois.length) {
+        messages.value.push({ content: parsed.content, isUser: false })
+      } else {
+        messages.value[aiIndex].content += parsed.content
+      }
+    }
+    if (parsed.type === 'plan' && parsed.steps) {
+      const msg = getExecMsg()
+      msg.execution.steps = parsed.steps.map((step, index) => ({
+        text: step.message || step.text || `步骤 ${index + 1}`,
+        status: step.status || 'pending',
+      }))
     }
     if (parsed.type === 'form' && parsed.formSpec) {
       let spec = parsed.formSpec
@@ -641,59 +807,68 @@ const createLoveEventHandler = (aiIndex) => {
       }, 2000)
     }
     if (parsed.type === 'step') {
-      rightPanelVisible.value = true
-      if (parsed.message) {
-        rightPanel.steps = [{ label: '搜索地点', status: 'active', detail: parsed.message }]
-        messages.value.push({ content: parsed.message, isUser: false, type: 'steps', steps: [{ label: '搜索地点', status: 'active', detail: parsed.message }] })
+      const msg = getExecMsg()
+      const steps = msg.execution.steps
+      if (Number.isInteger(parsed.index)) {
+        while (steps.length <= parsed.index) {
+          steps.push({ text: '', status: 'pending' })
+        }
+        steps[parsed.index] = {
+          text: parsed.message || steps[parsed.index].text,
+          status: parsed.status || steps[parsed.index].status || 'pending',
+        }
+        return
+      }
+      if (parsed.status === 'pending') {
+        steps.push({ text: parsed.message, status: 'pending' })
+      } else if (parsed.status === 'active') {
+        for (let i = 0; i < steps.length; i++) {
+          if (steps[i].status === 'pending') { steps[i].status = 'active'; break }
+        }
+      } else if (parsed.status === 'done') {
+        for (let i = 0; i < steps.length; i++) {
+          if (steps[i].status === 'active') { steps[i].status = 'done'; break }
+        }
       }
     }
     if (parsed.type === 'pois') {
-      // 动态分类 POI（新版）或扁平列表（兼容旧版）
       if (parsed.categories) {
-        const msgData = { content: '', isUser: false, type: 'pois', categories: parsed.categories, selected: parsed.selected || {} }
-        messages.value.push(msgData)
         rightPanel.pois = parsed.categories.flatMap(c => c.items || [])
-      } else if (parsed.items) {
-        rightPanel.pois = parsed.items
-        messages.value.push({ content: '', isUser: false, type: 'pois', items: parsed.items })
+        messages.value.push({
+          content: '',
+          isUser: false,
+          type: 'pois',
+          categories: parsed.categories,
+          selected: parsed.selected || {},
+        })
       }
     }
     if (parsed.type === 'map') {
       rightPanel.selectedPois = parsed.pois || []
       rightPanel.routeInfo = parsed.routeInfo || null
-      // 记录地点用于修改
       if (parsed.location) modifyLocation.value = parsed.location
-      rightPanel.steps = [
-        { label: '搜索地点', status: 'done' },
-        { label: '规划路线', status: 'done' },
-        { label: '生成PDF', status: 'active' },
-      ]
       messages.value.push({ content: '', isUser: false, type: 'map', pois: parsed.pois || [], routeInfo: parsed.routeInfo || null })
     }
     if (parsed.type === 'pdf' && parsed.url) {
       rightPanel.pdfUrl = parsed.url
-      rightPanel.steps = [
-        { label: '搜索地点', status: 'done' },
-        { label: '规划路线', status: 'done' },
-        { label: '生成PDF', status: 'done' },
-      ]
       messages.value.push({ content: '', isUser: false, type: 'pdf', url: parsed.url })
     }
-    // 分类结果展示（POI 卡片）
+    // Search results
     if (parsed.type === 'section' && parsed.items) {
-      messages.value.push({
-        content: '', isUser: false, type: 'section',
-        title: parsed.title,
+      const msg = getExecMsg()
+      msg.execution.results.push({
         icon: parsed.icon || getCatIcon(parsed.title),
-        items: parsed.items,
+        label: parsed.title,
+        items: parsed.items.slice(0, 3),
       })
     }
-    // 评价展示
+    // Legacy review details
     if (parsed.type === 'review') {
-      messages.value.push({
-        content: '', isUser: false, type: 'review',
-        placeName: parsed.placeName || '',
+      const msg = getExecMsg()
+      msg.execution.details.push({
+        name: parsed.placeName || '',
         text: parsed.content || '',
+        images: parsed.images || [],
       })
     }
   },
@@ -703,7 +878,7 @@ const createLoveEventHandler = (aiIndex) => {
   return handler
 }
 
-// ========== LoveAgent 流式对话 ==========
+// ========== LoveAgent 娴佸紡瀵硅瘽 ==========
 const handleLoveStream = async (msg) => {
   connecting.value = true
   const aiIndex = messages.value.length
@@ -800,7 +975,7 @@ const getPdfUrl = (path) => {
   return API_BASE.replace('/api', '') + path
 }
 
-// 找到最近的 pois 消息并打开选择器
+// Open the nearest POI selector message
 const findPoisMsgAndOpen = (mapMsg) => {
   // 往前找最近的 pois 消息
   const idx = messages.value.indexOf(mapMsg)
@@ -811,18 +986,18 @@ const findPoisMsgAndOpen = (mapMsg) => {
       return
     }
   }
-  // 没找到分类 POI，提示
   alert('无法找到 POI 数据，请刷新页面重试')
 }
 
 const getCatIcon = (label) => {
-  if (label.includes('茶') || label.includes('咖啡') || label.includes('休闲')) return '☕'
-  if (label.includes('景点') || label.includes('公园') || label.includes('观景')) return '🌸'
-  if (label.includes('晚餐') || label.includes('餐厅') || label.includes('火锅') || label.includes('美食')) return '🍽️'
-  if (label.includes('甜品') || label.includes('甜蜜')) return '🍰'
-  if (label.includes('花店') || label.includes('浪漫') || label.includes('惊喜')) return '💐'
-  if (label.includes('书店') || label.includes('文艺') || label.includes('展览')) return '📚'
-  if (label.includes('酒吧') || label.includes('微醺')) return '🍷'
+  if (!label) return '📍'
+  if (label.includes('茶') || label.includes('咖啡') || label.includes('休闲') || label.includes('鑼?') || label.includes('鍜栧暋')) return '☕'
+  if (label.includes('景点') || label.includes('公园') || label.includes('观景') || label.includes('鏅偣') || label.includes('鍏洯') || label.includes('瑙傛櫙')) return '🌿'
+  if (label.includes('餐') || label.includes('火锅') || label.includes('美食') || label.includes('椁愬巺') || label.includes('鐏攨')) return '🍽️'
+  if (label.includes('甜品') || label.includes('甜蜜') || label.includes('鐢滃搧')) return '🍰'
+  if (label.includes('花店') || label.includes('浪漫') || label.includes('惊喜') || label.includes('鑺卞簵')) return '💐'
+  if (label.includes('书店') || label.includes('文艺') || label.includes('展览') || label.includes('涔﹀簵')) return '📚'
+  if (label.includes('酒吧') || label.includes('微醺') || label.includes('閰掑惂')) return '🍷'
   return '📍'
 }
 
@@ -842,10 +1017,10 @@ const autoResize = () => {
 <style scoped>
 .chat-page { display: flex; height: 100vh; position: relative; z-index: 2; }
 
-/* 侧边栏遮罩 */
+/* 渚ц竟鏍忛伄缃?*/
 .sidebar-overlay { display: none; }
 
-/* 侧边栏 */
+/* 渚ц竟鏍?*/
 .sidebar {
   width: 260px; height: 100vh;
   background: rgba(255,255,255,0.15); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -929,7 +1104,7 @@ const autoResize = () => {
 .poi-addr { font-size: 0.75rem; color: var(--color-text-secondary); }
 .poi-dist { font-size: 0.72rem; color: var(--color-text-dim); }
 
-/* PDF 卡片 */
+/* PDF 鍗＄墖 */
 .pdf-card {
   display: flex; align-items: center; gap: 14px;
   padding: 16px; margin: 4px 0;
@@ -1018,6 +1193,47 @@ const autoResize = () => {
 }
 
 /* 分类结果卡片 + 评价气泡 */
+/* 执行面板（紧凑模式） */
+.exec-panel { padding: 14px 16px; margin: 8px 0; max-width: 600px; }
+.exec-header {
+  font-size: 0.82rem; font-weight: 700; margin-bottom: 10px;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.exec-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0; font-size: 0.78rem;
+}
+.exec-step.done { color: var(--color-text-secondary); }
+.exec-step.active { color: #f59e0b; font-weight: 600; }
+.exec-step.pending { color: var(--color-text-dim); }
+.step-icon { flex-shrink: 0; width: 18px; text-align: center; }
+.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+.exec-result {
+  margin-top: 10px; padding: 8px 10px;
+  background: rgba(255,255,255,0.04); border-radius: 10px;
+}
+.exec-result-header { font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; }
+.exec-poi {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0; font-size: 0.75rem;
+}
+.exec-poi .poi-name { color: var(--color-text); }
+.exec-poi .poi-meta { color: var(--color-text-dim); font-size: 0.68rem; }
+
+.exec-detail {
+  margin-top: 10px; padding: 8px 10px;
+  background: rgba(139,92,246,0.06); border-radius: 10px;
+  border: 1px solid rgba(139,92,246,0.1);
+}
+.detail-header { font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
+.detail-info { font-size: 0.72rem; color: var(--color-text-secondary); white-space: pre-wrap; margin-bottom: 6px; }
+.detail-images { display: flex; gap: 6px; }
+.detail-img { width: 100px; height: 75px; object-fit: cover; border-radius: 6px; }
+
 .section-card { padding: 14px; margin: 8px 0; }
 .section-title {
   font-size: 0.9rem; font-weight: 700; margin-bottom: 8px;
@@ -1031,6 +1247,61 @@ const autoResize = () => {
 }
 .review-place { font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; }
 .review-text { font-size: 0.78rem; color: var(--color-text-secondary); white-space: pre-wrap; }
+.review-images { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.review-img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+
+.place-detail-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px;
+  max-width: 620px;
+  margin: 8px 0;
+}
+.place-detail-media {
+  width: 132px;
+  height: 96px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.05);
+}
+.place-detail-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.place-detail-body { min-width: 0; }
+.place-detail-kicker {
+  font-size: 0.68rem;
+  color: #f59e0b;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.place-detail-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 5px;
+}
+.place-detail-address {
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+.place-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.place-detail-meta span {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+}
 
 /* POI 分类样式 */
 .poi-cat-section { margin-bottom: 12px; }
@@ -1042,7 +1313,7 @@ const autoResize = () => {
 }
 .poi-selected { border-color: rgba(139,92,246,0.4) !important; background: rgba(139,92,246,0.1) !important; }
 
-/* 弹窗遮罩 */
+/* 寮圭獥閬僵 */
 .dialog-overlay {
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
@@ -1051,3 +1322,4 @@ const autoResize = () => {
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
+

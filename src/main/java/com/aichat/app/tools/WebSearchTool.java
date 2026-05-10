@@ -6,140 +6,178 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * 网页搜索工具（直接抓取百度，不依赖第三方 API）
+ * 网页搜索工具（Bing 搜索，支持评价、图片、来源）
  */
 @Slf4j
+@Component
 public class WebSearchTool {
 
-    @Tool("在百度上搜索信息。输入搜索关键词，返回搜索结果（标题、链接、摘要）。可以搜任何内容：新闻、景点介绍、餐厅评价等。")
+    private static final String UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+    @Tool("搜索信息。输入关键词，返回搜索结果（标题、摘要、来源链接）。")
     public String searchWeb(
             @dev.langchain4j.agent.tool.P("搜索关键词") String query
     ) {
-        log.info("[WebSearchTool] 搜索: {}", query);
+        log.info("[searchWeb] 搜索: {}", query);
         try {
-            Document doc = Jsoup.connect("https://www.baidu.com/s")
-                    .data("wd", query)
-                    .data("pn", "0")
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            String encodedQ = URLEncoder.encode(query, StandardCharsets.UTF_8);
+            Document doc = Jsoup.connect("https://cn.bing.com/search?q=" + encodedQ)
+                    .userAgent(UA)
+                    .header("Accept-Language", "zh-CN,zh;q=0.9")
                     .header("Accept", "text/html,application/xhtml+xml")
-                    .header("Accept-Language", "zh-CN,zh;q=0.9")
-                    .timeout(10000)
-                    .get();
-
-            List<Map<String, String>> results = new ArrayList<>();
-
-            // 提取搜索结果
-            Elements items = doc.select("div.result, div.c-container");
-            for (Element item : items.subList(0, Math.min(items.size(), 8))) {
-                Map<String, String> result = new LinkedHashMap<>();
-
-                // 标题
-                Element titleEl = item.selectFirst("h3 a, .t a");
-                if (titleEl == null) continue;
-                result.put("title", titleEl.text().trim());
-                result.put("url", titleEl.attr("href"));
-
-                // 摘要
-                Element abstractEl = item.selectFirst(".c-abstract, .c-span-last .content-right_8Zs40, .c-font-normal");
-                result.put("snippet", abstractEl != null ? abstractEl.text().trim() : "");
-
-                // 图片（如果有）
-                Element imgEl = item.selectFirst("img");
-                if (imgEl != null && imgEl.hasAttr("src")) {
-                    result.put("image", imgEl.attr("src"));
-                }
-
-                results.add(result);
-            }
-
-            if (results.isEmpty()) {
-                return "未找到搜索结果";
-            }
-
-            // 格式化输出
-            StringBuilder sb = new StringBuilder();
-            sb.append("搜索「").append(query).append("」找到 ").append(results.size()).append(" 条结果：\n\n");
-            for (int i = 0; i < results.size(); i++) {
-                Map<String, String> r = results.get(i);
-                sb.append(i + 1).append(". ").append(r.get("title")).append("\n");
-                if (!r.get("snippet").isEmpty()) {
-                    sb.append("   ").append(r.get("snippet")).append("\n");
-                }
-                sb.append("   来源：").append(r.get("url")).append("\n");
-                if (r.containsKey("image")) {
-                    sb.append("   图片：").append(r.get("image")).append("\n");
-                }
-                sb.append("\n");
-            }
-
-            return sb.toString();
-
-        } catch (Exception e) {
-            log.error("百度搜索失败: {}", query, e);
-            return "搜索失败: " + e.getMessage();
-        }
-    }
-
-    @Tool("搜索地点的评价和评分。输入地点名称，从百度搜索该地点的用户评价、评分、人均消费等信息。")
-    public String searchReviews(
-            @dev.langchain4j.agent.tool.P("地点名称，如：楼外楼孤山店") String placeName
-    ) {
-        log.info("[WebSearchTool] 搜索评价: {}", placeName);
-        try {
-            // 搜索"地点名 评价 人均"
-            String query = placeName + " 评价 人均";
-            Document doc = Jsoup.connect("https://www.baidu.com/s")
-                    .data("wd", query)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .header("Accept-Language", "zh-CN,zh;q=0.9")
                     .timeout(10000)
                     .get();
 
             StringBuilder sb = new StringBuilder();
-            sb.append(placeName).append(" 的评价信息：\n\n");
-
-            // 提取前 5 条结果
-            Elements items = doc.select("div.result, div.c-container");
+            Elements results = doc.select("li.b_algo");
             int count = 0;
-            for (Element item : items) {
+            for (Element item : results) {
                 if (count >= 5) break;
-
-                Element titleEl = item.selectFirst("h3 a, .t a");
+                Element titleEl = item.selectFirst("h2 a");
                 if (titleEl == null) continue;
 
                 String title = titleEl.text().trim();
                 String url = titleEl.attr("href");
+                Element snippetEl = item.selectFirst(".b_caption p, .b_algoSlug");
+                String snippet = snippetEl != null ? snippetEl.text().trim() : "";
 
-                // 提取摘要中的评分、人均等关键词
-                String text = item.text();
-
-                sb.append("- ").append(title).append("\n");
-
-                // 尝试提取评分
-                if (text.contains("分") || text.contains("星")) {
-                    for (String part : text.split("[，。,\\s]")) {
-                        if (part.contains("分") || part.contains("星") || part.contains("人均") || part.contains("评分")) {
-                            sb.append("  ").append(part.trim()).append("\n");
-                        }
-                    }
-                }
-
-                sb.append("  来源：").append(url).append("\n\n");
+                sb.append(count + 1).append(". ").append(title).append("\n");
+                if (!snippet.isEmpty()) sb.append("   ").append(snippet).append("\n");
+                sb.append("   来源：").append(url).append("\n\n");
                 count++;
             }
 
-            return sb.toString();
-
+            return count > 0 ? sb.toString() : "未找到搜索结果";
         } catch (Exception e) {
-            log.error("搜索评价失败: {}", placeName, e);
-            return "搜索评价失败: " + e.getMessage();
+            log.error("搜索失败: {}", query, e);
+            return "搜索失败: " + e.getMessage();
         }
+    }
+
+    @Tool("搜索地点的图片。输入地点名称，返回相关图片链接。")
+    public String searchReviews(
+            @dev.langchain4j.agent.tool.P("地点名称，如：楼外楼孤山店") String placeName
+    ) {
+        log.info("[searchReviews] 搜索: {}", placeName);
+        StringBuilder result = new StringBuilder();
+
+        // 搜索图片
+        try {
+            List<String> imageUrls = searchImages(placeName);
+            if (!imageUrls.isEmpty()) {
+                result.append("📸 ").append(placeName).append(" 的图片：\n");
+                for (int i = 0; i < Math.min(imageUrls.size(), 3); i++) {
+                    result.append("  ").append(imageUrls.get(i)).append("\n");
+                }
+            } else {
+                result.append("未找到 ").append(placeName).append(" 的图片");
+            }
+        } catch (Exception e) {
+            log.error("搜索图片失败: {}", placeName, e);
+            return "搜索失败: " + e.getMessage();
+        }
+
+        return result.toString();
+    }
+
+    private Document fetchBing(String encodedQuery) throws Exception {
+        return Jsoup.connect("https://cn.bing.com/search?q=" + encodedQuery)
+                .userAgent(UA)
+                .header("Accept-Language", "zh-CN,zh;q=0.9")
+                .header("Accept", "text/html,application/xhtml+xml")
+                .timeout(10000)
+                .get();
+    }
+
+    /**
+     * 搜索图片（Bing 图片搜索）
+     */
+    public List<String> searchImages(String query) {
+        List<String> imageUrls = new ArrayList<>();
+        try {
+            String encodedQ = URLEncoder.encode(query, StandardCharsets.UTF_8);
+            Document doc = Jsoup.connect("https://cn.bing.com/images/search?q=" + encodedQ + "&first=1")
+                    .userAgent(UA)
+                    .header("Accept-Language", "zh-CN,zh;q=0.9")
+                    .timeout(10000)
+                    .get();
+
+            // 方法1：从 img 标签提取
+            Elements imgs = doc.select("img.mimg, a.iusc img, div.img_cont img");
+            for (Element img : imgs) {
+                String src = img.attr("src");
+                String m = img.attr("m"); // Bing 的 m 属性包含真实 URL
+                String realUrl = extractImageUrl(m, src);
+                if (realUrl != null && realUrl.startsWith("http") && !imageUrls.contains(realUrl)) {
+                    imageUrls.add(realUrl);
+                }
+                if (imageUrls.size() >= 3) break;
+            }
+
+            // 方法2：从 data-src 提取
+            if (imageUrls.isEmpty()) {
+                Elements lazyImgs = doc.select("img[data-src]");
+                for (Element img : lazyImgs) {
+                    String src = img.attr("data-src");
+                    if (src.startsWith("http") && !imageUrls.contains(src)) {
+                        imageUrls.add(src);
+                    }
+                    if (imageUrls.size() >= 3) break;
+                }
+            }
+
+            // 方法3：从 a.iusc 的 href/m 属性提取
+            if (imageUrls.isEmpty()) {
+                Elements links = doc.select("a.iusc");
+                for (Element link : links) {
+                    String m = link.attr("m");
+                    String url = extractImageUrlFromM(m);
+                    if (url != null && !imageUrls.contains(url)) {
+                        imageUrls.add(url);
+                    }
+                    if (imageUrls.size() >= 3) break;
+                }
+            }
+
+            log.info("图片搜索 [{}] → {} 张", query, imageUrls.size());
+        } catch (Exception e) {
+            log.error("图片搜索失败: {}", query, e);
+        }
+        return imageUrls;
+    }
+
+    private String extractImageUrl(String m, String fallbackSrc) {
+        if (m != null && !m.isEmpty()) {
+            String url = extractImageUrlFromM(m);
+            if (url != null) return url;
+        }
+        if (fallbackSrc != null && fallbackSrc.startsWith("http")) {
+            return fallbackSrc;
+        }
+        return null;
+    }
+
+    private String extractImageUrlFromM(String m) {
+        try {
+            // m 属性是 JSON 格式，包含 "murl" 字段
+            if (m.contains("\"murl\"")) {
+                int start = m.indexOf("\"murl\"") + 7;
+                int end = m.indexOf("\"", start);
+                if (end > start) {
+                    return m.substring(start, end).replace("\\/", "/");
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

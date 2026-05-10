@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="step-progress glass-card">
     <h4 class="progress-title">约会规划进度</h4>
     <div class="steps">
@@ -70,3 +70,4 @@ defineProps({
 .step-detail { font-size: 0.72rem; color: var(--color-text-secondary); margin-top: 2px; }
 .step-item.pending .step-label { color: var(--color-text-dim); }
 </style>
+

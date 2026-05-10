@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="route-map-wrapper glass-card">
     <h4 class="map-title">路线规划</h4>
     <div class="map-container" ref="mapRef"></div>
@@ -46,7 +46,7 @@ onMounted(async () => {
     // 确保容器有尺寸
     const container = mapRef.value
     if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-      console.warn('地图容器尺寸为0，延迟初始化')
+      console.warn('地图容器尺寸为 0，延迟初始化')
       setTimeout(() => initMap(AMap), 500)
       return
     }
@@ -89,13 +89,12 @@ function initMap(AMap) {
     map.add(markers)
   }
 
-  // 逐段画步行路线
+  // 查询步行距离，但路线统一用自定义折线绘制，避免高德默认标记覆盖 1/2/3 编号
   if (props.pois.length >= 2) {
     let totalDist = 0
     let totalTime = 0
     let completed = 0
     const segments = props.pois.length - 1
-    let hasRouteDrawn = false
 
     for (let i = 0; i < segments; i++) {
       const from = props.pois[i]
@@ -103,8 +102,7 @@ function initMap(AMap) {
       if (!from.longitude || !to.longitude) continue
 
       const walking = new AMap.Walking({
-        map: map,
-        hideMarkers: true, // 隐藏默认标记，用自定义标记
+        hideMarkers: true,
       })
 
       walking.search(
@@ -115,9 +113,8 @@ function initMap(AMap) {
           if (status === 'complete' && result.routes && result.routes.length > 0) {
             totalDist += result.routes[0].distance || 0
             totalTime += result.routes[0].time || 0
-            hasRouteDrawn = true
           } else {
-            console.warn(`步行路线规划失败 (${from.name} → ${to.name}):`, status, result)
+            console.warn(`步行路线规划失败 (${from.name} -> ${to.name}):`, status, result)
           }
 
           // 所有段完成后
@@ -129,10 +126,7 @@ function initMap(AMap) {
             if (totalTime > 0 && !totalDuration.value) {
               totalDuration.value = Math.round(totalTime / 60) + '分钟'
             }
-            // 如果 Walking API 没画出路线，用 fallback Polyline
-            if (!hasRouteDrawn) {
-              drawFallbackLine(AMap)
-            }
+            drawFallbackLine(AMap)
           }
         }
       )
@@ -163,7 +157,7 @@ function initMap(AMap) {
       dist += linePath[i].distance(linePath[i + 1])
     }
     if (dist > 0 && !totalDistance.value) {
-      totalDistance.value = '≈' + (dist / 1000).toFixed(1) + 'km（直线距离）'
+      totalDistance.value = '约 ' + (dist / 1000).toFixed(1) + 'km（直线距离）'
     }
   }
 
@@ -196,3 +190,4 @@ onUnmounted(() => {
   font-size: 0.85rem; color: var(--color-text-secondary);
 }
 </style>
+

@@ -1,8 +1,4 @@
 package com.aichat.app.tools;
-
-import com.aichat.app.graph.DatePlanState;
-import com.aichat.app.graph.nodes.RouteNode;
-import com.aichat.app.graph.nodes.PdfNode;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,13 +14,11 @@ import java.util.*;
 public class DatePlanTools {
 
     private final AmapTools amapTools;
-    private final RouteNode routeNode;
-    private final PdfNode pdfNode;
+    private final PdfGenerationTool pdfGenerationTool;
 
-    public DatePlanTools(AmapTools amapTools, RouteNode routeNode, PdfNode pdfNode) {
+    public DatePlanTools(AmapTools amapTools, PdfGenerationTool pdfGenerationTool) {
         this.amapTools = amapTools;
-        this.routeNode = routeNode;
-        this.pdfNode = pdfNode;
+        this.pdfGenerationTool = pdfGenerationTool;
     }
 
     /**
@@ -72,52 +66,19 @@ public class DatePlanTools {
                 return result;
             }
 
-            // 构造状态
-            Map<String, Object> init = new LinkedHashMap<>();
-            init.put(DatePlanState.DATE_LOCATION, location);
-            init.put(DatePlanState.DATE_BUDGET, budget);
-            init.put(DatePlanState.DATE_STYLE, style);
-            init.put(DatePlanState.ACTION, "plan");
-
-            // 设置选中的 POI（兼容老字段）
-            if (selectedPois.size() >= 1) init.put(DatePlanState.SELECTED_CAFE, selectedPois.get(0));
-            if (selectedPois.size() >= 2) init.put(DatePlanState.SELECTED_SPOT, selectedPois.get(1));
-            if (selectedPois.size() >= 3) init.put(DatePlanState.SELECTED_RESTAURANT, selectedPois.get(2));
-
-            DatePlanState state = DatePlanState.create(init);
-
-            // 路线规划
-            Map<String, Object> routeUpdate = routeNode.apply(state);
-            Map<String, Object> merged = new HashMap<>(state.data());
-            merged.putAll(routeUpdate);
-            state = DatePlanState.create(merged);
-
-            String distance = state.value(DatePlanState.ROUTE_DISTANCE).map(Object::toString).orElse(null);
-            String duration = state.value(DatePlanState.ROUTE_DURATION).map(Object::toString).orElse(null);
             result.routeInfo = new LinkedHashMap<>();
-            if (distance != null) result.routeInfo.put("distance", distance);
-            if (duration != null) result.routeInfo.put("duration", duration);
-
-            // 补充 planDescription
-            if (state.getPlanDescription() == null || state.getPlanDescription().isEmpty()) {
-                StringBuilder desc = new StringBuilder("## 约会行程安排\n\n");
-                String[] icons = {"☕", "🌸", "🍽️", "🎭", "🎵"};
-                for (int i = 0; i < selectedPois.size(); i++) {
-                    Map<String, Object> poi = selectedPois.get(i);
-                    String icon = i < icons.length ? icons[i] : "•";
-                    desc.append("### ").append(icon).append(" 第").append(i + 1).append("站\n");
-                    desc.append("- **").append(poi.get("name")).append("**\n");
-                    desc.append("- 地址：").append(poi.getOrDefault("address", "暂无")).append("\n\n");
+            if (selectedPois.size() >= 2) {
+                AmapTools.RouteResult route = routeBetween(selectedPois.get(0), selectedPois.get(1));
+                if (route != null) {
+                    if (route.getDistance() != null) result.routeInfo.put("distance", route.getDistance());
+                    if (route.getDuration() != null) result.routeInfo.put("duration", route.getDuration());
                 }
-                Map<String, Object> descUpdate = new HashMap<>();
-                descUpdate.put(DatePlanState.PLAN_DESC, desc.toString());
-                merged = new HashMap<>(state.data());
-                merged.putAll(descUpdate);
-                state = DatePlanState.create(merged);
             }
 
             // 生成 PDF
-            String pdfPath = pdfNode.generatePdf(state);
+            String pdfPath = pdfGenerationTool.generate(
+                    location, budget, style, "", "",
+                    selectedPois, buildPlanDescription(selectedPois));
             if (pdfPath != null) {
                 String filename = pdfPath.substring(pdfPath.lastIndexOf("/") + 1);
                 if (filename.isEmpty()) filename = pdfPath.substring(pdfPath.lastIndexOf("\\") + 1);
@@ -133,6 +94,38 @@ public class DatePlanTools {
             result.errorMessage = "重新生成失败: " + e.getMessage();
             return result;
         }
+    }
+
+    private AmapTools.RouteResult routeBetween(Map<String, Object> from, Map<String, Object> to) {
+        try {
+            double[] origin = {toDouble(from.get("longitude")), toDouble(from.get("latitude"))};
+            double[] destination = {toDouble(to.get("longitude")), toDouble(to.get("latitude"))};
+            if (origin[0] == 0 || origin[1] == 0 || destination[0] == 0 || destination[1] == 0) {
+                return null;
+            }
+            return amapTools.walkingRoute(origin, destination);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private double toDouble(Object value) {
+        if (value instanceof Number number) return number.doubleValue();
+        if (value == null) return 0;
+        try { return Double.parseDouble(value.toString()); } catch (NumberFormatException e) { return 0; }
+    }
+
+    private String buildPlanDescription(List<Map<String, Object>> selectedPois) {
+        StringBuilder desc = new StringBuilder("## 约会行程安排\n\n");
+        String[] icons = {"☕", "🌸", "🍽️", "🎭", "🎵"};
+        for (int i = 0; i < selectedPois.size(); i++) {
+            Map<String, Object> poi = selectedPois.get(i);
+            String icon = i < icons.length ? icons[i] : "•";
+            desc.append("### ").append(icon).append(" 第").append(i + 1).append("站\n");
+            desc.append("- **").append(poi.getOrDefault("name", "未知地点")).append("**\n");
+            desc.append("- 地址：").append(poi.getOrDefault("address", "暂无")).append("\n\n");
+        }
+        return desc.toString();
     }
 
     @Data

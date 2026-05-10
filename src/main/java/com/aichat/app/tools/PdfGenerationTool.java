@@ -1,6 +1,4 @@
 package com.aichat.app.tools;
-
-import com.aichat.app.graph.DatePlanState;
 import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFont;
@@ -41,7 +39,10 @@ public class PdfGenerationTool {
     private static final DeviceRgb TEXT_DARK = new DeviceRgb(30, 30, 30);
     private static final DeviceRgb TEXT_GRAY = new DeviceRgb(100, 100, 100);
 
-    public String generate(DatePlanState state) {
+    public String generate(String location, String budget, String style,
+                           String occasion, String activity,
+                           List<Map<String, Object>> itineraryPois,
+                           String planDescription) {
         String dir = System.getProperty("user.dir") + "/tmp";
         new File(dir).mkdirs();
         String pdfPath = dir + "/date-plan-" + System.currentTimeMillis() + ".pdf";
@@ -54,17 +55,17 @@ public class PdfGenerationTool {
             doc.setFont(font);
 
             // 封面
-            addCoverPage(doc, state);
+            addCoverPage(doc, location, budget, style, occasion, activity);
 
             // 新页 - 行程详情
             doc.add(new AreaBreak());
-            addItinerarySection(doc, state);
+            addItinerarySection(doc, planDescription);
 
             // POI 信息
-            addPoiSection(doc, state);
+            addPoiSection(doc, itineraryPois);
 
             // 预算汇总
-            addBudgetSection(doc, state);
+            addBudgetSection(doc, budget);
 
             // 页脚
             addFooter(doc);
@@ -108,7 +109,8 @@ public class PdfGenerationTool {
         }
     }
 
-    private void addCoverPage(Document doc, DatePlanState state) {
+    private void addCoverPage(Document doc, String location, String budget, String style,
+                              String occasion, String activity) {
         // 标题
         Paragraph title = new Paragraph("约会计划")
                 .setFontColor(PRIMARY_COLOR)
@@ -137,18 +139,14 @@ public class PdfGenerationTool {
                 .setMarginLeft(80)
                 .setMarginRight(80);
 
-        addInfoRow(infoCard, "地点", state.getDateLocation());
-        addInfoRow(infoCard, "预算", state.getDateBudget());
-        addInfoRow(infoCard, "风格", state.getDateStyle());
-        if (state.getDateOccasion() != null && !state.getDateOccasion().isEmpty()) {
-            addInfoRow(infoCard, "场景", state.getDateOccasion());
+        addInfoRow(infoCard, "地点", location);
+        addInfoRow(infoCard, "预算", budget);
+        addInfoRow(infoCard, "风格", style);
+        if (occasion != null && !occasion.isEmpty()) {
+            addInfoRow(infoCard, "场景", occasion);
         }
-        if (state.getDateActivity() != null && !state.getDateActivity().isEmpty()) {
-            addInfoRow(infoCard, "活动偏好", state.getDateActivity());
-        }
-        addInfoRow(infoCard, "时长", state.getDateDuration());
-        if (state.getDateKeywords() != null && !state.getDateKeywords().isEmpty()) {
-            addInfoRow(infoCard, "特殊要求", state.getDateKeywords());
+        if (activity != null && !activity.isEmpty()) {
+            addInfoRow(infoCard, "活动偏好", activity);
         }
         doc.add(infoCard);
 
@@ -174,11 +172,10 @@ public class PdfGenerationTool {
                 .setPadding(8));
     }
 
-    private void addItinerarySection(Document doc, DatePlanState state) {
+    private void addItinerarySection(Document doc, String planDesc) {
         // 章节标题
         doc.add(createSectionTitle("行程安排"));
 
-        String planDesc = state.getPlanDescription();
         if (planDesc != null && !planDesc.isEmpty()) {
             // 解析 Markdown 格式的计划，转为 PDF 元素
             for (String line : planDesc.split("\n")) {
@@ -221,15 +218,8 @@ public class PdfGenerationTool {
         }
     }
 
-    private void addPoiSection(Document doc, DatePlanState state) {
+    private void addPoiSection(Document doc, List<Map<String, Object>> itineraryPois) {
         doc.add(createSectionTitle("推荐地点"));
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> cafe = (Map<String, Object>) state.value(DatePlanState.SELECTED_CAFE).orElse(null);
-        @SuppressWarnings("unchecked")
-        Map<String, Object> spot = (Map<String, Object>) state.value(DatePlanState.SELECTED_SPOT).orElse(null);
-        @SuppressWarnings("unchecked")
-        Map<String, Object> restaurant = (Map<String, Object>) state.value(DatePlanState.SELECTED_RESTAURANT).orElse(null);
 
         Table table = new Table(UnitValue.createPercentArray(new float[]{20, 35, 45}))
                 .useAllAvailableWidth();
@@ -239,11 +229,14 @@ public class PdfGenerationTool {
         addTableHeader(table, "名称");
         addTableHeader(table, "地址");
 
-        if (cafe != null) addPoiRow(table, "下午茶", cafe);
-        if (spot != null) addPoiRow(table, "景点", spot);
-        if (restaurant != null) addPoiRow(table, "晚餐", restaurant);
+        String[] labels = {"第一站", "第二站", "第三站", "第四站", "第五站"};
+        if (itineraryPois != null) {
+            for (int i = 0; i < itineraryPois.size(); i++) {
+                addPoiRow(table, i < labels.length ? labels[i] : "第" + (i + 1) + "站", itineraryPois.get(i));
+            }
+        }
 
-        if (cafe == null && spot == null && restaurant == null) {
+        if (itineraryPois == null || itineraryPois.isEmpty()) {
             table.addCell(new Cell(1, 3).add(new Paragraph("暂无推荐地点"))
                     .setFontColor(TEXT_GRAY).setFontSize(10));
         }
@@ -264,10 +257,8 @@ public class PdfGenerationTool {
         table.addCell(new Cell().add(new Paragraph(poi.getOrDefault("address", "-").toString())).setFontSize(10).setPadding(6));
     }
 
-    private void addBudgetSection(Document doc, DatePlanState state) {
+    private void addBudgetSection(Document doc, String budget) {
         doc.add(createSectionTitle("预算汇总"));
-
-        String budget = state.getDateBudget();
         Table table = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
                 .useAllAvailableWidth();
 

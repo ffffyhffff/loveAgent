@@ -30,6 +30,7 @@ public class AmapTools {
     private static final String AROUND_URL = "https://restapi.amap.com/v5/place/around";
     private static final String TEXT_URL = "https://restapi.amap.com/v5/place/text";
     private static final String WALKING_URL = "https://restapi.amap.com/v5/direction/walking";
+    private static final String DETAIL_URL = "https://restapi.amap.com/v3/place/detail";
 
     /**
      * 地址转经纬度（自动提取城市）
@@ -135,6 +136,7 @@ public class AmapTools {
             for (int i = 0; i < pois.size(); i++) {
                 JSONObject poi = pois.getJSONObject(i);
                 PoiResult r = new PoiResult();
+                r.setId(poi.getStr("id"));
                 r.setName(poi.getStr("name"));
                 r.setAddress(poi.getStr("address"));
                 r.setDistance(poi.getStr("distance"));
@@ -179,6 +181,7 @@ public class AmapTools {
 
     @lombok.Data
     public static class PoiResult {
+        private String id;
         private String name;
         private String address;
         private String distance;
@@ -190,5 +193,70 @@ public class AmapTools {
     public static class RouteResult {
         private String distance;
         private String duration;
+    }
+
+    /**
+     * POI 详情（评分、评价、照片、营业信息）
+     */
+    @lombok.Data
+    public static class PoiDetail {
+        private String name;
+        private String address;
+        private String rating;           // 评分
+        private String cost;             // 人均消费
+        private String businessHours;    // 营业时间
+        private List<String> photos;     // 照片 URL 列表
+        private List<String> reviews;    // 评价摘要列表
+    }
+
+    /**
+     * 查询 POI 详情（评分、评价、照片）
+     * @param poiId POI 的 id（从 aroundSearch/textSearch 结果中获取）
+     */
+    public PoiDetail placeDetail(String poiId) {
+        PoiDetail detail = new PoiDetail();
+        detail.setPhotos(new ArrayList<>());
+        detail.setReviews(new ArrayList<>());
+        try {
+            // v3 API: id=xxx, 返回包含 photos/biz_ext/rating
+            String url = DETAIL_URL + "?key=" + apiKey + "&id=" + poiId + "&output=JSON";
+            String resp = HttpUtil.get(url);
+            JSONObject json = JSONUtil.parseObj(resp);
+            JSONArray pois = json.getJSONArray("pois");
+            if (pois == null || pois.isEmpty()) {
+                log.warn("POI 详情为空: {}", poiId);
+                return detail;
+            }
+
+            JSONObject poi = pois.getJSONObject(0);
+            detail.setName(poi.getStr("name"));
+            detail.setAddress(poi.getStr("address"));
+
+            // 评分和人均在 biz_ext 中
+            JSONObject bizExt = poi.getJSONObject("biz_ext");
+            if (bizExt != null) {
+                detail.setRating(bizExt.getStr("rating", ""));
+                detail.setCost(bizExt.getStr("cost", ""));
+                detail.setBusinessHours(bizExt.getStr("open_time", ""));
+            }
+
+            // 照片
+            JSONArray photos = poi.getJSONArray("photos");
+            if (photos != null) {
+                List<String> photoUrls = new ArrayList<>();
+                for (int i = 0; i < Math.min(photos.size(), 5); i++) {
+                    JSONObject photo = photos.getJSONObject(i);
+                    String url2 = photo.getStr("url");
+                    if (url2 != null && !url2.isEmpty()) photoUrls.add(url2);
+                }
+                detail.setPhotos(photoUrls);
+            }
+
+            log.info("POI 详情 [{}]: rating={}, cost={}, photos={}",
+                    detail.getName(), detail.getRating(), detail.getCost(), detail.getPhotos().size());
+        } catch (Exception e) {
+            log.error("POI 详情查询失败: {}", poiId, e);
+        }
+        return detail;
     }
 }
