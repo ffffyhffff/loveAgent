@@ -27,12 +27,15 @@
 
       <ResultPanel
         v-if="mode === 'agent'"
+        :activeTab="resultTab"
         :steps="planSteps"
+        :toolCalls="toolCalls"
         :pois="resultPois"
         :selectedPois="resultSelectedPois"
         :routeInfo="resultRouteInfo"
         :pdfUrl="resultPdfUrl"
         :streaming="connecting"
+        @update:activeTab="resultTab = $event"
         @close="mode = 'chat'"
       />
     </div>
@@ -84,6 +87,7 @@ const connecting = ref(false)
 // ==================== Agent 模式 ====================
 const mode = ref('chat')           // 'chat' | 'agent'
 const planSteps = ref([])          // [{label, status, detail}]
+const toolCalls = ref([])          // [{toolName, toolInput, status, results[], startTime}]
 const resultTab = ref('plan')      // 'plan' | 'tools' | 'map' | 'pdf'
 const resultPois = ref([])
 const resultSelectedPois = ref([])
@@ -102,7 +106,7 @@ const modifyLocation = ref('')
 
 // provide 给子组件
 provide('agentState', {
-  mode, planSteps, resultTab, connecting,
+  mode, planSteps, toolCalls, resultTab, connecting,
   resultPois, resultSelectedPois, resultRouteInfo, resultPdfUrl,
 })
 
@@ -136,12 +140,34 @@ const applyLoveEvent = (parsed, target, state) => {
     state._execMsg = execMsg
   }
 
-  // step → update planSteps
+  // step → update planSteps + track tool calls
   if (parsed.type === 'step') {
     const idx = parsed.index
     if (idx != null && idx < planSteps.value.length) {
       planSteps.value[idx].status = parsed.status || planSteps.value[idx].status
       planSteps.value[idx].label = parsed.message || planSteps.value[idx].label
+    }
+    // step 变为 active 时创建工具调用记录
+    if (parsed.status === 'active' && parsed.message) {
+      const tc = toolCalls.value.find(tc => tc.stepIndex === idx && tc.status === 'running')
+      if (!tc) {
+        toolCalls.value.push({
+          stepIndex: idx,
+          toolName: extractToolName(parsed.message),
+          toolInput: parsed.message,
+          status: 'running',
+          results: [],
+          startTime: Date.now(),
+        })
+      }
+    }
+    // step 完成时标记工具调用结束
+    if (parsed.status === 'done') {
+      const runningTc = toolCalls.value.find(tc => tc.stepIndex === idx && tc.status === 'running')
+      if (runningTc) {
+        runningTc.status = 'done'
+        runningTc.endTime = Date.now()
+      }
     }
     // Update exec msg steps if present
     if (state._execMsg) {
@@ -153,10 +179,27 @@ const applyLoveEvent = (parsed, target, state) => {
     }
   }
 
-  // section → resultPois
+  // section → resultPois + toolCalls
   if (parsed.type === 'section' && parsed.items) {
     resultPois.value = [...resultPois.value, ...parsed.items]
     resultTab.value = 'tools'
+    // 找到对应的运行中工具调用并关联结果
+    const activeTc = toolCalls.value.find(tc => tc.status === 'running')
+    if (activeTc) {
+      activeTc.results = [...activeTc.results, ...parsed.items]
+      activeTc.status = 'done'
+      activeTc.endTime = Date.now()
+    } else {
+      // 没有运行中的工具调用，创建一个
+      toolCalls.value.push({
+        toolName: parsed.title || 'POI搜索',
+        toolInput: parsed.title || '',
+        status: 'done',
+        results: [...parsed.items],
+        startTime: Date.now(),
+        endTime: Date.now(),
+      })
+    }
     if (state._execMsg) {
       state._execMsg.execution.results.push({
         icon: parsed.icon || getCatIcon(parsed.title),
@@ -307,6 +350,7 @@ const switchConversation = async (id) => {
   // 重置 Agent 状态
   mode.value = 'chat'
   planSteps.value = []
+  toolCalls.value = []
   resultPois.value = []
   resultSelectedPois.value = []
   resultRouteInfo.value = null
@@ -589,6 +633,16 @@ const handleAiModify = async () => {
 }
 
 // ==================== 工具函数 ====================
+
+const extractToolName = (message) => {
+  if (!message) return 'Agent 工具'
+  const m = message.replace(/^完成[：:]\s*/, '')
+  if (/搜索|查找/.test(m)) return '高德 POI 搜索'
+  if (/路线|步行|规划/.test(m)) return '高德 步行路线规划'
+  if (/详情|补充|图片/.test(m)) return 'POI 详情获取'
+  if (/PDF|生成|计划书/.test(m)) return 'PDF 生成'
+  return 'Agent 工具'
+}
 
 const getCatIcon = (label) => {
   if (!label) return '📍'

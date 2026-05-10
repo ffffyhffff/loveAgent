@@ -487,7 +487,7 @@ public class ChatController {
             org.springframework.core.io.Resource resource =
                     new org.springframework.core.io.FileSystemResource(file);
             return ResponseEntity.ok()
-                    .header("Content-Disposition", "attachment; filename=" + filename)
+                    .header("Content-Disposition", "inline; filename=" + filename)
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(resource);
         } catch (Exception e) {
