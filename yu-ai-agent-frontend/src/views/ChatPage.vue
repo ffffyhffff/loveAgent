@@ -115,7 +115,10 @@ provide('agentState', {
 const applyLoveEvent = (parsed, target, state) => {
   // text → chatMessages
   if (parsed.type === 'text' && parsed.content) {
-    if (state.aiIndex != null && target[state.aiIndex]) {
+    // 如果已经有执行面板了，文字结论放在新气泡
+    if (state._execMsg || mode.value === 'agent') {
+      target.push({ content: parsed.content, isUser: false })
+    } else if (state.aiIndex != null && target[state.aiIndex]) {
       target[state.aiIndex].content += parsed.content
     } else if (state.aiIndex == null) {
       target.push({ content: parsed.content, isUser: false })
@@ -671,7 +674,7 @@ const getCatIcon = (label) => {
 
 /* ======== Agent 模式：两栏并排（聊天 | 结果） ======== */
 .chat-main.agent-mode { flex-direction: row; }
-.chat-main.agent-mode > :deep(.chat-panel) { width: 300px; flex-shrink: 0; }
+.chat-main.agent-mode > :deep(.chat-panel) { width: 340px; flex-shrink: 0; }
 .chat-main.agent-mode > :deep(.result-panel) { flex: 1; min-width: 340px; }
 
 /* ======== 移动端 ======== */

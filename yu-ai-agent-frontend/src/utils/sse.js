@@ -38,6 +38,10 @@ export async function consumeSSE(response, { onEvent, onDone, onError }) {
             onError(parsed)
             return
           }
+          // 非文本事件给延迟，提供渐进式渲染效果
+          if (parsed.type !== 'text') {
+            await new Promise(r => setTimeout(r, 60))
+          }
           onEvent(parsed)
         } catch {
           // 非 JSON 数据行，跳过
