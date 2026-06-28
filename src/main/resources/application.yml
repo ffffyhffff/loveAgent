@@ -28,7 +28,7 @@ server:
 ai:
   dashscope:
     # 阿里云百炼 API Key（请替换为你自己的）
-    api-key: sk-a4cab39af09642a5af177d62966a4236
+    api-key: 
     model: qwen-plus
 
 # 日志
